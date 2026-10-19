@@ -95,9 +95,12 @@ void from_json(const nlohmann::json& j, Theme& t) {
     color(j, "backdrop", t.backdrop);
     color(j, "shadow", t.shadow);
 
-    // `border.focused` / `border.unfocused` are deliberately ignored: they
-    // describe window borders, and `unfocused` defaults to the panel background,
-    // so an outline drawn from it would be invisible on the overlay.
+    const auto border = j.find("border");
+    if (border != j.end() && border->is_object()) {
+        color(*border, "focused", t.border_focused);
+        color(*border, "unfocused", t.border_unfocused);
+    }
+
     const auto radius = j.find("corner_radius");
     if (radius != j.end() && radius->is_number_integer()) {
         t.corner_radius = radius->get<int>();
