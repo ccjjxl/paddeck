@@ -6,3 +6,4 @@ subprojects/
 *.bak
 compile_commands.json
 .cache/
+dist/
