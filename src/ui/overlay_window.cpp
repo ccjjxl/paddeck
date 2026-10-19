@@ -5,7 +5,6 @@
 #include <cctype>
 
 #include <gdk/gdkkeysyms.h>
-#include <gtk4-layer-shell/gtk4-layer-shell.h>
 
 #include <gdkmm/display.h>
 #include <gtkmm/eventcontrollerkey.h>
@@ -101,7 +100,7 @@ OverlayWindow::OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_laye
     }
     apply_theme(m_theme);
 
-    if (use_layer_shell && gtk_layer_is_supported()) {
+    if (use_layer_shell && LayerShell::supported()) {
         setup_layer_shell();
     } else {
         set_decorated(true);
@@ -141,16 +140,15 @@ OverlayWindow::~OverlayWindow() {
 }
 
 void OverlayWindow::setup_layer_shell() {
-    auto* window = GTK_WINDOW(gobj());
-    gtk_layer_init_for_window(window);
-    gtk_layer_set_namespace(window, "paddeck");
-    gtk_layer_set_layer(window, GTK_LAYER_SHELL_LAYER_OVERLAY);
-    gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP, TRUE);
-    gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
-    gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_LEFT, TRUE);
-    gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_RIGHT, TRUE);
-    gtk_layer_set_exclusive_zone(window, 0);
-    gtk_layer_set_keyboard_mode(window, GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
+    m_layer_shell = std::make_unique<LayerShell>(*this);
+    m_layer_shell->set_namespace("paddeck");
+    m_layer_shell->set_layer(LayerShell::Layer::Overlay);
+    m_layer_shell->set_anchor(LayerShell::EdgeTop, true);
+    m_layer_shell->set_anchor(LayerShell::EdgeBottom, true);
+    m_layer_shell->set_anchor(LayerShell::EdgeLeft, true);
+    m_layer_shell->set_anchor(LayerShell::EdgeRight, true);
+    m_layer_shell->set_exclusive_zone(0);
+    m_layer_shell->set_keyboard_mode(LayerShell::KeyboardMode::Exclusive);
 }
 
 void OverlayWindow::build_ui() {

@@ -9,7 +9,6 @@ project('paddeck', 'cpp', 'c',
   ])
 
 gtkmm_dep = dependency('gtkmm-4.0', version: '>=4.10')
-layershell_dep = dependency('gtk4-layer-shell-0', version: '>=1.0')
 json_dep = dependency('nlohmann_json')
 toml_dep = dependency('tomlplusplus')
 wayland_dep = dependency('wayland-client')
@@ -33,6 +32,8 @@ protocol_specs = [
    'staging/ext-image-capture-source/ext-image-capture-source-v1.xml'],
   ['ext-image-copy-capture-v1',
    'staging/ext-image-copy-capture/ext-image-copy-capture-v1.xml'],
+  ['xdg-shell',
+   'stable/xdg-shell/xdg-shell.xml'],
 ]
 
 protocol_sources = []
@@ -48,6 +49,18 @@ foreach spec : protocol_specs
     command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
 endforeach
 
+# wlr-layer-shell is not part of wayland-protocols; it ships with wlroots.  We
+# vendor the XML so the build has no external file dependency.
+wlr_layer_shell_xml = files('protocols/wlr-layer-shell-unstable-v1.xml')
+protocol_sources += custom_target('wlr-layer-shell-unstable-v1-client-header',
+  input: wlr_layer_shell_xml,
+  output: 'wlr-layer-shell-unstable-v1-client.h',
+  command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
+protocol_sources += custom_target('wlr-layer-shell-unstable-v1-private-code',
+  input: wlr_layer_shell_xml,
+  output: 'wlr-layer-shell-unstable-v1-protocol.c',
+  command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+
 protocol_lib = static_library('umbriel-protocols', protocol_sources,
   dependencies: wayland_dep,
   # wayland-scanner output is not warning-clean; our own code still is.
@@ -62,10 +75,17 @@ sources = files(
   'src/umbriel/capture.cpp',
   'src/ui/theme.cpp',
   'src/ui/overlay_window.cpp',
+  'src/wayland/layer_shell.cpp',
+  'src/wayland/wl_shim.cpp',
 )
 
+# The wl_proxy_* overrides in wl_shim.cpp must be visible to libwayland (and
+# to libgtk) so its wayland-client calls resolve to them.
+wl_shim_dynamic_list = meson.current_source_dir() / 'src/wayland/wl_shim.dynlist'
+
 executable('paddeck', sources,
-  dependencies: [gtkmm_dep, layershell_dep, json_dep, toml_dep, wayland_dep],
+  dependencies: [gtkmm_dep, json_dep, toml_dep, wayland_dep],
   link_with: protocol_lib,
+  link_args: ['-Wl,--dynamic-list=' + wl_shim_dynamic_list],
   include_directories: [include_directories('src'), include_directories('.')],
   install: true)

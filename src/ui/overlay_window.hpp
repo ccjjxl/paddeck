@@ -14,6 +14,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,7 @@
 #include "model/types.hpp"
 #include "umbriel/capture.hpp"
 #include "umbriel/ipc.hpp"
+#include "wayland/layer_shell.hpp"
 
 namespace paddeck {
 
@@ -82,6 +84,7 @@ private:
     UmbrielIpc& m_ipc;
     ConfigStore& m_config;
     CaptureClient m_capture;
+    std::unique_ptr<LayerShell> m_layer_shell;
 
     std::vector<WindowInfo> m_windows;
     std::vector<Scratchpad> m_scratchpads;

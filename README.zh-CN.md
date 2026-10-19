@@ -2,9 +2,11 @@
 
 [English](README.md) · **简体中文**
 
-Umbriel 的 **scratchpad（暂存区）切换器**，用 C++20 + GTK4 + `gtk4-layer-shell`
-实现，以全屏覆盖层（overlay）的形式列出所有 scratchpad 及其窗口，
+Umbriel 的 **scratchpad（暂存区）切换器**，用 C++20 + GTK4 实现，
+以全屏覆盖层（overlay）的形式列出所有 scratchpad 及其窗口，
 **全部用键盘操作**：移动选中项、显示 / 隐藏整个暂存区、逐个成员窗口切换、跳转到窗口。
+覆盖层是 `wlr-layer-shell` 表面，该协议由本项目直接实现，
+因此**不依赖** `gtk4-layer-shell`。
 
 > 面向普通用户的使用手册：[`docs/zh.html`](docs/zh.html)（中文）·
 > [`docs/index.html`](docs/index.html)（英文，默认语言）。自包含的离线 HTML，
@@ -96,12 +98,14 @@ Umbriel 的 **scratchpad（暂存区）切换器**，用 C++20 + GTK4 + `gtk4-la
 | 依赖 | 版本 | 用途 |
 | --- | --- | --- |
 | gtkmm-4.0 | ≥ 4.10（构建环境 4.22） | GTK4 的 C++ 绑定 |
-| gtk4-layer-shell-0 | ≥ 1.0（构建环境 1.3） | layer-shell 覆盖层 |
 | nlohmann_json | 任意 | IPC JSON |
 | tomlplusplus | ≥ 3.0 | 读取配置 |
-| wayland-client | 任意 | 窗口抓帧的底层连接 |
-| wayland-protocols | ≥ 1.36 | 生成 `ext-image-copy-capture-v1` 等协议代码 |
+| wayland-client | 任意 | 覆盖层与窗口抓帧的底层连接 |
+| wayland-protocols | ≥ 1.36 | 生成 `xdg-shell`、`ext-image-copy-capture-v1` 等协议代码 |
 | meson + ninja | — | 构建 |
+
+`wlr-layer-shell-unstable-v1` 的协议 XML 已随源码放在 `protocols/` 下并直接编译进
+程序，构建和运行都不需要额外的 layer-shell 库。
 
 运行时需要正在运行的 Umbriel 会话（通过 `$UMBRIEL_SOCKET`，否则回退到
 `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock`）。
@@ -130,6 +134,7 @@ sudo ninja -C build install      # 安装到 /usr/local/bin/paddeck
 - 覆盖层是 `overlay` 层的 layer-shell 表面，`namespace = "paddeck"`，
   键盘交互为 `exclusive`，`exclusive_zone = 0`（不挤占其他窗口）。
   如需给它设置专属外观，可在配置里用 `[[layer_rule]]` 匹配该 namespace。
+  该表面由 `src/wayland/layer_shell.cpp` 直接使用 `zwlr_layer_shell_v1` 创建。
 
 ### 推荐的 Umbriel 配置
 
@@ -207,6 +212,9 @@ src/
 ├── umbriel/
 │   ├── ipc.*                   Unix socket 客户端：订阅事件 + 动作队列
 │   └── capture.*               独立线程的逐窗口抓帧客户端（ext-image-copy-capture-v1）
+├── wayland/
+│   ├── layer_shell.*           覆盖层的 wlr-layer-shell 表面
+│   └── wl_shim.*               拦截 xdg_surface 角色，使上面的做法成为可能
 └── ui/
     ├── theme.*                 Umbriel 配色 → GTK CSS（#rrggbbaa → rgba()）
     └── overlay_window.*        layer-shell 覆盖层、选中项状态与全部键盘处理
@@ -216,9 +224,10 @@ src/
 `docs/index.html`（英文）与 `docs/zh.html`（中文）。两者都是自包含样式，
 无外部资源与脚本，支持深色 / 浅色与打印。
 
-meson 会在构建时用 `wayland-scanner` 生成
+meson 会在构建时用 `wayland-scanner` 生成 `xdg-shell`、
 `ext-foreign-toplevel-list-v1` / `ext-image-capture-source-v1` /
-`ext-image-copy-capture-v1` 的绑定代码，编译成静态库后链接进主程序。
+`ext-image-copy-capture-v1` 的绑定代码，编译成静态库后链接进主程序；
+随源码提供的 `wlr-layer-shell-unstable-v1.xml` 也走同一流程。
 版本号由 `configure_file` 从 `project version` 生成 `paddeck_config.hpp`，
 `--version` 与代码里都不再硬编码。
 

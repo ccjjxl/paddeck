@@ -3,6 +3,17 @@
 All notable changes to this project are documented in this file. This project
 follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **The `gtk4-layer-shell-0` dependency is gone.** The `wlr-layer-shell` client
+  protocol is now implemented inside the project (`src/wayland/`): the protocol
+  XML is vendored under `protocols/` and built with `wayland-scanner`, and a
+  small libwayland request interposer gives the GTK surface the layer-shell
+  role instead of the usual `xdg_toplevel`. Nothing changes for users, but
+  building and running no longer needs the external library.
+
 ## [0.1.0] — 2026-10-19
 
 First public release.

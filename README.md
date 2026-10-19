@@ -4,7 +4,9 @@
 
 A keyboard-driven **scratchpad switcher** for the
 [Umbriel](https://github.com/noctalia-dev/umbriel) Wayland compositor, written in
-C++20 with GTK4 and `gtk4-layer-shell`.
+C++20 with GTK4. The overlay is a `wlr-layer-shell` surface; the protocol is
+implemented directly in this project, so there is no `gtk4-layer-shell`
+dependency.
 
 It opens a full-screen overlay that lists every scratchpad together with the
 windows inside it, showing **live thumbnails** of those windows. Everything is
@@ -119,12 +121,14 @@ the current palette and corner radius.
 | Dependency | Version | Purpose |
 | --- | --- | --- |
 | gtkmm-4.0 | ≥ 4.10 (built against 4.22) | C++ bindings for GTK4 |
-| gtk4-layer-shell-0 | ≥ 1.0 (built against 1.3) | layer-shell overlay |
 | nlohmann_json | any | IPC JSON |
 | tomlplusplus | ≥ 3.0 | reading the configuration |
-| wayland-client | any | low-level connection for window capture |
-| wayland-protocols | ≥ 1.36 | generates `ext-image-copy-capture-v1` and friends |
+| wayland-client | any | low-level connection for the overlay and window capture |
+| wayland-protocols | ≥ 1.36 | generates `xdg-shell` and `ext-image-copy-capture-v1` and friends |
 | meson + ninja | — | build system |
+
+`wlr-layer-shell-unstable-v1` is vendored under `protocols/` and compiled in,
+so no layer-shell library is needed at build or run time.
 
 At runtime a running Umbriel session is required (via `$UMBRIEL_SOCKET`,
 falling back to `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock`).
@@ -155,6 +159,8 @@ instance, so the overlay toggles between shown and hidden.
   `namespace = "paddeck"`, keyboard interactivity `exclusive` and
   `exclusive_zone = 0` (it does not reserve space from other windows). Use a
   `[[layer_rule]]` matching that namespace if you want to style it.
+  The surface is created by `src/wayland/layer_shell.cpp`, which speaks
+  `zwlr_layer_shell_v1` directly.
 
 ### Recommended Umbriel configuration
 
@@ -238,6 +244,9 @@ src/
 ├── umbriel/
 │   ├── ipc.*                   Unix socket client: event subscription + action queue
 │   └── capture.*               per-window capture client on its own thread
+├── wayland/
+│   ├── layer_shell.*           wlr-layer-shell surface for the overlay
+│   └── wl_shim.*               xdg_surface role interception that makes it possible
 └── ui/
     ├── theme.*                 Umbriel palette → GTK CSS (#rrggbbaa → rgba())
     └── overlay_window.*        layer-shell overlay, selection state, all key handling
@@ -248,10 +257,11 @@ A user-facing offline HTML manual is provided in two languages:
 self-contained, use no external assets or scripts, and support dark / light
 colour schemes and printing.
 
-meson generates the `ext-foreign-toplevel-list-v1` /
+meson generates the `xdg-shell`, `ext-foreign-toplevel-list-v1` /
 `ext-image-capture-source-v1` / `ext-image-copy-capture-v1` bindings with
 `wayland-scanner` at build time, compiles them into a static library and links
-that into the binary. The version string is produced by `configure_file` from
+that into the binary. The vendored `wlr-layer-shell-unstable-v1.xml` is
+processed the same way. The version string is produced by `configure_file` from
 `project version` into `paddeck_config.hpp`, so neither `--version` nor the
 source hard-codes it.
 

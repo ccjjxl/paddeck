@@ -1,0 +1,11 @@
+{
+  wl_proxy_marshal_array_flags;
+  wl_proxy_destroy;
+  wl_proxy_add_listener;
+  wl_proxy_get_version;
+  wl_proxy_set_queue;
+  wl_proxy_get_queue;
+  wl_proxy_get_user_data;
+  wl_proxy_set_user_data;
+  wl_proxy_get_display;
+};
