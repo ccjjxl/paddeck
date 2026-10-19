@@ -13,6 +13,7 @@
 #include <gtkmm/grid.h>
 #include <gtkmm/overlay.h>
 #include <gtkmm/styleprovider.h>
+#include <gtkmm/version.h>
 #include <pangomm.h>
 
 #include "ui/theme.hpp"
@@ -251,7 +252,13 @@ void OverlayWindow::toggle_visible() {
 void OverlayWindow::apply_theme(const Theme& theme) {
     m_theme = theme;
     if (m_css != nullptr) {
+#if GTKMM_CHECK_VERSION(4, 12, 0)
         m_css->load_from_string(build_css(m_theme));
+#else
+        // gtkmm < 4.12 has no load_from_string(); load_from_data() does the
+        // same thing, and is only deprecated from 4.12 onwards.
+        m_css->load_from_data(build_css(m_theme));
+#endif
     }
 }
 
