@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scratchpads 使用手册 — Umbriel 暂存区图形管理器</title>
+<style>
+  :root {
+    --bg: #16121c;
+    --bg-soft: #1e1826;
+    --panel: #241d2e;
+    --panel-2: #2c2438;
+    --text: #ece7f4;
+    --muted: #a99fbb;
+    --border: #3b3149;
+    --accent: #7ee0c0;
+    --accent-2: #a99cff;
+    --warn: #ffcf7a;
+    --danger: #ff8d8d;
+    --radius: 12px;
+    --mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Noto Sans CJK SC", "Source Han Sans SC",
+            "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f7f5fa;
+      --bg-soft: #ffffff;
+      --panel: #ffffff;
+      --panel-2: #f1edf7;
+      --text: #241d2e;
+      --muted: #6c6280;
+      --border: #ddd6e8;
+      --accent: #1d9e7d;
+      --accent-2: #5f4bd8;
+      --warn: #b07a12;
+      --danger: #c0392b;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---------- 页头 ---------- */
+  header.hero {
+    background:
+      radial-gradient(900px 340px at 12% -20%, rgba(169,156,255,.22), transparent 62%),
+      radial-gradient(760px 300px at 92% 0%, rgba(126,224,192,.16), transparent 58%),
+      var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    padding: 56px 0 40px;
+  }
+  header.hero .wrap { padding-bottom: 0; }
+  .kicker {
+    display: inline-block;
+    font-size: .78rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 12px;
+    margin-bottom: 18px;
+  }
+  h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.25; margin: 0 0 12px; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin: 0; max-width: 62ch; }
+
+  /* ---------- 目录 ---------- */
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 32px 0 8px;
+  }
+  nav.toc h2 { font-size: .82rem; letter-spacing: .1em; text-transform: uppercase;
+               color: var(--muted); margin: 0 0 10px; }
+  nav.toc ol { margin: 0; padding-left: 1.3em; columns: 2; column-gap: 32px; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a { color: var(--text); text-decoration: none; border-bottom: 1px solid transparent; }
+  nav.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ---------- 正文 ---------- */
+  section { margin-top: 56px; scroll-margin-top: 20px; }
+  h2 { font-size: 1.4rem; margin: 0 0 6px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.06rem; margin: 28px 0 6px; color: var(--accent-2); }
+  @media (prefers-color-scheme: light) { h3 { color: var(--accent-2); } }
+  p { margin: 10px 0; }
+  a { color: var(--accent); }
+
+  ul, ol { padding-left: 1.35em; }
+  li { margin: 4px 0; }
+
+  code, kbd {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: .12em .42em;
+  }
+  kbd { border-bottom-width: 2px; }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .86rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 1em; }
+  .cmt { color: var(--muted); }
+
+  /* ---------- 提示框 ---------- */
+  .callout {
+    display: flex;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-2);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin: 18px 0;
+  }
+  .callout.tip { border-left-color: var(--accent); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout .ico { flex: 0 0 auto; font-size: 1.1rem; line-height: 1.6; }
+  .callout p { margin: 4px 0; }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- 卡片网格 ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; margin: 20px 0; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .card h4 { margin: 0 0 6px; font-size: .98rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  /* ---------- 表格 ---------- */
+  .tablewrap { overflow-x: auto; margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel-2); font-size: .82rem; letter-spacing: .04em;
+       text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  tbody tr:hover { background: var(--panel); }
+  td:first-child { white-space: nowrap; }
+
+  /* ---------- 示意图 ---------- */
+  figure { margin: 22px 0; }
+  figcaption { color: var(--muted); font-size: .86rem; margin-top: 10px; text-align: center; }
+  .mock {
+    background: rgba(0, 0, 0, .34);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px 20px;
+  }
+  @media (prefers-color-scheme: light) { .mock { background: #ded8ea; } }
+  .mock-card {
+    max-width: 640px; margin: 0 auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+  }
+  @media (prefers-color-scheme: light) { .mock-card { box-shadow: 0 10px 26px rgba(40,30,60,.16); } }
+  .mock-row { display: flex; align-items: center; gap: 8px; }
+  .mock-title { font-weight: 600; font-size: .95rem; }
+  .mock-sub { color: var(--muted); font-size: .78rem; }
+  .mock-dot { color: var(--accent); font-size: .72rem; margin-left: auto; }
+  .mock-icon {
+    border: 1px solid var(--border); border-radius: 6px; padding: 0 6px;
+    font-size: .8rem; color: var(--muted); background: var(--panel-2);
+  }
+  .mock-search {
+    margin: 10px 0; border: 1px solid var(--border); border-radius: 8px;
+    padding: 5px 10px; color: var(--muted); font-size: .8rem; background: var(--panel-2);
+  }
+  .mock-sp { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--bg-soft); }
+  .mock-sphead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: .84rem; }
+  .mock-badge {
+    font-size: .68rem; border-radius: 999px; padding: 1px 8px; font-weight: 600;
+    background: rgba(128,128,128,.22); color: var(--muted);
+  }
+  .mock-badge.on { background: var(--accent-2); color: #16121c; }
+  .mock-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .mock-tile { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--panel-2); }
+  .mock-shot {
+    height: 74px;
+    background:
+      repeating-linear-gradient(90deg, rgba(126,224,192,.20) 0 6px, transparent 6px 13px),
+      linear-gradient(150deg, #2b2438, #191320);
+  }
+  @media (prefers-color-scheme: light) {
+    .mock-shot { background:
+      repeating-linear-gradient(90deg, rgba(29,158,125,.22) 0 6px, transparent 6px 13px),
+      linear-gradient(150deg, #e6e0f0, #cfc7e0); }
+  }
+  .mock-bar { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: .76rem;
+              border-top: 1px solid var(--border); }
+  .mock-bar .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mock-bar .a { color: var(--muted); }
+  .mock-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+               color: var(--muted); font-size: .78rem; display: flex; gap: 14px; flex-wrap: wrap; }
+
+  .pin {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.35em; height: 1.35em; border-radius: 50%;
+    background: var(--accent-2); color: #16121c;
+    font-size: .68rem; font-weight: 700; vertical-align: .18em;
+  }
+  @media (prefers-color-scheme: light) { .pin { color: #fff; } }
+  .legend { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 6px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); font-size: .9rem; }
+  .legend li { display: flex; gap: 9px; align-items: flex-start; }
+  .legend .pin { flex: 0 0 auto; margin-top: .3em; }
+
+  /* ---------- FAQ ---------- */
+  details {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    margin: 10px 0;
+  }
+  details[open] { padding-bottom: 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  summary::marker { color: var(--accent); }
+  details p, details ul { margin: 10px 0 0; color: var(--muted); }
+  details code { color: var(--text); }
+
+  footer {
+    margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: .86rem;
+  }
+
+  @media print {
+    :root { --bg: #fff; --bg-soft: #fff; --panel: #fff; --panel-2: #f4f4f6;
+            --text: #111; --muted: #555; --border: #ccc; --accent: #0a6; --accent-2: #44a; }
+    header.hero { background: none; }
+    .mock { background: #eee; }
+    details { break-inside: avoid; }
+    details > summary { list-style: none; }
+    section { break-inside: avoid-page; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">Umbriel · 使用手册</span>
+    <h1>Scratchpads —— 暂存区图形管理器</h1>
+    <p class="lede">
+      一个图形界面，用来查看和管理 Umbriel 的 scratchpad（暂存区）：
+      看到每个暂存区里存着哪些窗口，并且直接看到它们的<b>真实画面</b>。
+      按一个快捷键呼出，<kbd>Esc</kbd> 关掉，不用记命令。
+    </p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#what">它能帮你做什么</a></li>
+      <li><a href="#start">开始使用</a></li>
+      <li><a href="#tour">界面导览</a></li>
+      <li><a href="#howto">常用操作速查</a></li>
+      <li><a href="#preview">窗口预览（缩略图）</a></li>
+      <li><a href="#manage">新建 / 删除暂存区</a></li>
+      <li><a href="#filter">搜索与过滤</a></li>
+      <li><a href="#tips">小技巧</a></li>
+      <li><a href="#faq">常见问题</a></li>
+      <li><a href="#cli">进阶：命令行</a></li>
+      <li><a href="#trouble">出问题了怎么办</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- 1 -->
+    <section id="what">
+      <h2>1. 它能帮你做什么</h2>
+      <p>
+        Umbriel 的 scratchpad 可以把窗口“收起来”暂存，需要时再拿出来。
+        但平时你只能靠记忆：哪个暂存区里到底放着什么？
+      </p>
+      <p>这个工具给你一个总览面板：</p>
+
+      <div class="cards">
+        <div class="card">
+          <h4>👀 看见内容</h4>
+          <p>每个窗口显示真实画面缩略图。<b>即使窗口正被收在暂存区里、屏幕上看不见，也能看到它的内容。</b></p>
+        </div>
+        <div class="card">
+          <h4>🖱️ 一个快捷键</h4>
+          <p>呼出面板，点一下就切换显示 / 隐藏、聚焦、归还或关闭窗口。</p>
+        </div>
+        <div class="card">
+          <h4>🔎 快速定位</h4>
+          <p>输入几个字就能过滤出你想要的窗口，不用在一堆标题里找。</p>
+        </div>
+        <div class="card">
+          <h4>➕ 随手整理</h4>
+          <p>在界面里新建或删除暂存区，不用手写配置文件。</p>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="ico">💡</span>
+        <p>
+          <b>最实用的一点：</b>暂存区里的窗口是“隐身”的，你平时看不到它们。
+          有了缩略图，你收起来的终端、浏览器、编辑器现在都一目了然。
+        </p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="start">
+      <h2>2. 开始使用</h2>
+
+      <h3>第一步：确认已经安装</h3>
+      <p>在终端里执行下面这行，如果有版本号输出，就说明已经装好了：</p>
+      <pre><code>scratchpads-umbriel --version</code></pre>
+      <p>如果提示“命令未找到”，请让安装者（或你自己）执行：</p>
+      <pre><code>meson setup build
+ninja -C build
+sudo ninja -C build install</code></pre>
+
+      <h3>第二步：给它绑一个快捷键 <span class="pin">★</span></h3>
+      <p>
+        这是唯一必须做的一步。打开 Umbriel 的快捷键配置
+        <code>~/.config/umbriel/binds.toml</code>，加入一行：
+      </p>
+      <pre><code>[keybinds]
+"Mod+S" = "spawn:scratchpads-umbriel"</code></pre>
+      <p>
+        键位 <code>"Mod+S"</code> 可以换成你喜欢的任意组合。
+        保存后需要让 Umbriel 重新读取配置（多数情况下按一下快捷键或重载配置即可生效）。
+      </p>
+
+      <h3>第三步：呼出面板</h3>
+      <p>
+        按下你刚设置的快捷键，屏幕中央会出现一个半透明遮罩 + 面板。
+        <b>再按一次同样的快捷键</b>，面板就会收起。
+      </p>
+      <p>关闭面板还有两种方式：</p>
+      <ul>
+        <li>按 <kbd>Esc</kbd>；</li>
+        <li>用鼠标点击面板之外的暗色区域。（点面板里面不会关闭）</li>
+      </ul>
+
+      <div class="callout">
+        <span class="ico">ℹ️</span>
+        <p>
+          面板打开时会独占键盘输入，所以你在里面按键不会跑到别的窗口去；
+          一旦关闭，键盘就立刻交还给原来的窗口。
+        </p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="tour">
+      <h2>3. 界面导览</h2>
+      <figure>
+        <div class="mock">
+          <div class="mock-card">
+            <div class="mock-row">
+              <span class="mock-title">Scratchpads <span class="pin">1</span></span>
+              <span class="mock-dot">● 已连接</span>
+              <span class="mock-icon">▦ <span class="pin">2</span></span>
+              <span class="mock-icon">⟳</span>
+              <span class="mock-icon">✕</span>
+            </div>
+            <div class="mock-sub">显示、隐藏、聚焦并重新整理 Umbriel scratchpad 中的窗口。</div>
+            <div class="mock-search">按标题或 app id 过滤… <span class="pin">3</span></div>
+
+            <div class="mock-sp">
+              <div class="mock-sphead">
+                <span>▾</span>
+                <b>default</b>
+                <span class="mock-badge">implicit</span>
+                <span class="mock-badge">隐藏中</span>
+                <span class="mock-badge">4 个窗口</span>
+                <span style="margin-left:auto"></span>
+                <span class="mock-icon">显示 <span class="pin">4</span></span>
+                <span class="mock-icon">◂</span>
+                <span class="mock-icon">▸</span>
+                <span class="mock-icon">⋮</span>
+              </div>
+              <div class="mock-grid">
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">OC | 用 C++ GTK4 …</span><span class="a">↩ ✕</span></div>
+                </div>
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">foot</span><span class="a">↩ ✕</span></div>
+                </div>
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">foot</span><span class="a">↩ ✕</span></div>
+                </div>
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">foot</span><span class="a">↩ ✕</span></div>
+                </div>
+              </div>
+              <div class="mock-sub" style="margin-top:8px"><span class="pin">5</span> 每个方格里是窗口的真实画面</div>
+            </div>
+
+            <div class="mock-foot">
+              <span>＋ 新建暂存区 <span class="pin">6</span></span>
+              <span>重新读取配置</span>
+              <span>打开配置文件</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>面板示意图（实际外观会跟随你的 Umbriel 主题配色）</figcaption>
+      </figure>
+
+      <ul class="legend">
+        <li><span class="pin">1</span><span><b>标题栏</b>：右侧依次是连接状态、<b>缩略图开关</b> <code>▦</code>、重新读取配置 <code>⟳</code>、关闭 <code>✕</code>。</span></li>
+        <li><span class="pin">2</span><span><b>缩略图开关</b> <code>▦</code>：点亮时显示窗口画面；关掉后变成一行行紧凑的文字条目，同时停止抓取画面（更省电）。</span></li>
+        <li><span class="pin">3</span><span><b>搜索框</b>：输入窗口标题或应用名即可实时过滤。</span></li>
+        <li><span class="pin">4</span><span><b>暂存区标题行</b>：名称与状态标签，右侧是「显示 / 隐藏」「上一个 / 下一个」「⋮ 更多」。</span></li>
+        <li><span class="pin">5</span><span><b>窗口卡片</b>：就是窗口画面本身。左上角可能有一个状态小标签，底部是标题和两个小按钮。</span></li>
+        <li><span class="pin">6</span><span><b>底栏</b>：新建暂存区、重新读取配置、打开配置文件。</span></li>
+      </ul>
+
+      <h3>状态标签怎么看</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>标签</th><th>含义</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><b>focused</b></td><td>这是当前正在使用的窗口。</td></tr>
+            <tr><td><b>visible</b></td><td>窗口正显示在屏幕上（没有被收起）。</td></tr>
+            <tr><td><b>urgent</b></td><td>窗口在请求注意（比如终端有提示音或新消息）。</td></tr>
+            <tr><td><b>hidden</b></td><td>（在暂存区标题行上）这个暂存区的窗口都收起来了。</td></tr>
+            <tr><td><b>implicit</b></td><td>这是 Umbriel 默认的暂存区，不是你手动创建的。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="howto">
+      <h2>4. 常用操作速查</h2>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>我想……</th><th>怎么做</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>打开 / 收起面板</td>
+              <td>按你绑定的快捷键；或用 <kbd>Esc</kbd>、点击面板外关闭。</td>
+            </tr>
+            <tr>
+              <td>看看某个窗口长什么样</td>
+              <td>直接看卡片里的缩略图。</td>
+            </tr>
+            <tr>
+              <td>跳到某个窗口</td>
+              <td><b>点击它的缩略图</b>。窗口会被切到前台；如果它正被收在隐藏的暂存区里，会顺便自动显示出来。</td>
+            </tr>
+            <tr>
+              <td>把某个窗口从暂存区拿出来</td>
+              <td>点卡片右下角的 <code>↩</code>。窗口会回到它当初保存的那个工作区。</td>
+            </tr>
+            <tr>
+              <td>关掉某个窗口</td>
+              <td>点卡片右下角的 <code>✕</code>。</td>
+            </tr>
+            <tr>
+              <td>显示 / 隐藏整个暂存区</td>
+              <td>点暂存区标题行右侧的 <b>显示 / 隐藏</b> 按钮。原来的窗口会一起出现或收起。</td>
+            </tr>
+            <tr>
+              <td>一次只显示一个窗口</td>
+              <td>用标题行的 <code>◂</code> <code>▸</code> 轮流切换暂存区里的成员。</td>
+            </tr>
+            <tr>
+              <td>把当前窗口收进某个暂存区</td>
+              <td>点该暂存区的 <code>⋮</code> → <b>Store focused window here</b>。</td>
+            </tr>
+            <tr>
+              <td>把当前窗口<b>搬</b>到某个暂存区</td>
+              <td>点 <code>⋮</code> → <b>Move focused window here</b>（明确地把它移过去）。</td>
+            </tr>
+            <tr>
+              <td>折叠一个暂存区</td>
+              <td>点名称左边的 <code>▾</code> / <code>▸</code> 箭头。</td>
+            </tr>
+            <tr>
+              <td>找到某个窗口</td>
+              <td>在搜索框里输入标题或应用名的一部分。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3><code>⋮</code> 更多菜单里有什么</h3>
+      <ul>
+        <li><b>Focus next window</b> —— 聚焦这个暂存区里下一个已显示的窗口。</li>
+        <li><b>Store focused window here</b> —— 把当前窗口收进这个暂存区。
+            它是个<b>开关</b>：如果窗口已经在这里，再来一次就会把它取出来。</li>
+        <li><b>Move focused window here</b> —— 把当前窗口搬进这个暂存区。</li>
+        <li><b>Reveal in configuration</b> —— 用默认编辑器打开定义了该暂存区的配置文件。</li>
+        <li><b>Delete scratchpad…</b> —— 删除该暂存区（<span style="color:var(--danger)">红色</span>，只有本工具创建的才会出现这一项）。</li>
+      </ul>
+    </section>
+
+    <!-- 5 -->
+    <section id="preview">
+      <h2>5. 窗口预览（缩略图）</h2>
+      <p>
+        面板里的每个窗口都是一个缩略图，画面<b>实时取自合成器</b>，不是图标也不是截图文件。
+      </p>
+
+      <div class="callout tip">
+        <span class="ico">✨</span>
+        <p>
+          <b>被收进暂存区的窗口同样能看到画面。</b>
+          这是它和普通任务栏最大的不同 —— 那些“隐身”的窗口不再是黑盒。
+        </p>
+      </div>
+
+      <h3>关于画面的几点说明</h3>
+      <ul>
+        <li><b>刷新频率</b>：面板打开时，画面大约每 4 秒更新一次，所以是新近的内容。</li>
+        <li><b>省电</b>：面板一关，抓取立刻停止，完全不占用资源。</li>
+        <li><b>比例</b>：不同形状的窗口会按比例缩小并居中，两侧可能留出空白，这是正常的（不会裁掉内容）。</li>
+        <li><b>暂时看不到</b>：刚打开面板的瞬间缩略图可能还在生成，会先显示应用名首字母（如 <code>GC</code>）和“正在抓取…”字样，稍等一下即可。</li>
+        <li><b>抓不到画面时</b>：卡片会显示 <code>no preview</code>，但其它功能照常可用。</li>
+      </ul>
+
+      <h3>两个相关按钮</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>按钮</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>▦</code> 缩略图开关</td><td>关掉后，卡片变成一行行的文字条目（标题 + 应用名 + 两个小按钮），并且<b>停止抓取画面</b>。适合只想快速点一下、或想省电的时候。</td></tr>
+            <tr><td><code>⟳</code> 重新读取配置</td><td>重新读取 Umbriel 配置、清空画面缓存并立即重新抓取一遍。配置改动后按它最省事。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="manage">
+      <h2>6. 新建 / 删除暂存区</h2>
+
+      <h3>新建</h3>
+      <ol>
+        <li>点底栏的 <b>＋ 新建暂存区</b>。</li>
+        <li>输入名称，也可以顺便填一个“空的时候运行什么命令”。</li>
+        <li>确认即可。</li>
+      </ol>
+      <p>
+        新建出来的暂存区会被写进工具自己管理的一份文件
+        （<code>scratchpads-managed.toml</code>，和你的主配置放在同一个目录），
+        并自动让 Umbriel 重新加载配置。
+      </p>
+
+      <div class="callout warn">
+        <span class="ico">⚠️</span>
+        <p>
+          <b>第一次新建时会多问一句：</b>需要把你的主配置文件里加入对这个文件的引用。
+          工具会先备份你的配置（<code>config.toml.scratchpad-manager.bak</code>），
+          然后只做最小改动 —— 注释和排版都会原样保留。
+        </p>
+      </div>
+
+      <div class="callout warn">
+        <span class="ico">⚠️</span>
+        <p>
+          <b>请注意：一旦有了具名暂存区，Umbriel 就会取消默认的 <code>default</code> 暂存区。</b>
+          原来收在里面的窗口会回到它们各自保存的位置（不会丢失）。
+          界面在创建前会先把这件事告诉你。
+        </p>
+      </div>
+
+      <h3>删除</h3>
+      <p>
+        点该暂存区的 <code>⋮</code> → <b>Delete scratchpad…</b>，确认即可。
+        只有<b>由本工具创建</b>的暂存区才会显示这一项，你自己手写的配置不会被改动。
+      </p>
+      <p>另外，<code>default</code> 这个名字是 Umbriel 保留的，不能用来新建。</p>
+    </section>
+
+    <!-- 7 -->
+    <section id="filter">
+      <h2>7. 搜索与过滤</h2>
+      <p>标题栏下方的输入框可以实时筛选窗口，匹配的是<b>窗口标题</b>和<b>应用名</b>：</p>
+      <ul>
+        <li>输入 <code>fire</code> → 只剩标题或应用名里含 “fire” 的窗口。</li>
+        <li>输入 <code>term</code> → 只剩终端类窗口。</li>
+        <li>清空输入框 → 恢复全部。</li>
+      </ul>
+      <p>没有窗口匹配的暂存区会被自动隐藏，看起来更清爽。</p>
+    </section>
+
+    <!-- 8 -->
+    <section id="tips">
+      <h2>8. 小技巧</h2>
+      <ul>
+        <li>
+          <b>把它当成“暂存区监视器”。</b> 用 <code>Mod+S</code> 打开看一眼就 <kbd>Esc</kbd>，
+          两秒钟就能确认收起来的窗口都还在。
+        </li>
+        <li>
+          <b>用缩略图代替切换窗口。</b> 找到目标后直接点缩略图，
+          比先切换工作区再找窗口快得多。
+        </li>
+        <li>
+          <b>窗口很多时先搜索。</b> 输入应用名（如 <code>kitty</code>）能立刻缩短列表。
+        </li>
+        <li>
+          <b>不想看到画面就关掉 <code>▦</code>。</b> 面板会变成紧凑列表，
+          信息量不减，还更省电。
+        </li>
+        <li>
+          <b>面板外观是跟随主题的。</b> 颜色和圆角都取自你当前的 Umbriel 主题。
+        </li>
+      </ul>
+    </section>
+
+    <!-- 9 -->
+    <section id="faq">
+      <h2>9. 常见问题</h2>
+
+      <details>
+        <summary>按键没反应，面板不出现？</summary>
+        <p>依次检查：</p>
+        <ul>
+          <li>快捷键有没有写对（<code>~/.config/umbriel/binds.toml</code> 里的 <code>[keybinds]</code> 段落）。</li>
+          <li>改完配置后 Umbriel 有没有重新加载。</li>
+          <li>在终端里直接跑 <code>scratchpads-umbriel</code> 能不能打开面板。</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>缩略图位置一直显示首字母，一直没变成画面？</summary>
+        <p>
+          说明这台机器的合成器没有提供按窗口抓取画面所需的协议，
+          或者该窗口暂时没有被渲染过。面板会退化成文字列表，
+          <b>切换、聚焦、归还、关闭这些功能都不受影响</b>。
+        </p>
+      </details>
+
+      <details>
+        <summary>面板里少了一个窗口？</summary>
+        <p>
+          面板只列出<b>存在于暂存区里的窗口</b>。普通显示在桌面上的窗口不会在这里出现 ——
+          这正是暂存区管理器的用途。用搜索框时也可能把它过滤掉了，清空输入框试试。
+        </p>
+      </details>
+
+      <details>
+        <summary>点了「显示」之后，屏幕上多了好几个窗口？</summary>
+        <p>
+          这是预期的：显示一个暂存区会把它的所有成员一起放出来。
+          如果只想一个个来，用 <code>◂</code> <code>▸</code> 逐个切换。
+        </p>
+      </details>
+
+      <details>
+        <summary>新建暂存区时它问我“要不要修改主配置”，可以拒绝吗？</summary>
+        <p>
+          可以。但如果拒绝，新建的暂存区不会被 Umbriel 读取到，
+          你需要自己把 <code>scratchpads-managed.toml</code> 加进主配置的
+          <code>[include] files</code> 里。
+        </p>
+      </details>
+
+      <details>
+        <summary>它会改坏我的配置文件吗？</summary>
+        <p>
+          不会。本工具只写自己管理的那一份文件；对主配置只做一次最小的“加一行引用”，
+          而且会<b>先备份</b>、<b>保留注释与格式</b>。你自己写的暂存区也永远不会被删除。
+        </p>
+      </details>
+
+      <details>
+        <summary>面板一打开，键盘就被它“吃”掉了？</summary>
+        <p>
+          是的，这是刻意设计：这样你在面板里的按键不会误发到后面的窗口。
+          按 <kbd>Esc</kbd> 或点面板外关闭后，键盘会立刻还给原来的窗口。
+        </p>
+      </details>
+
+      <details>
+        <summary>左下角的连接状态是 <code>○ 重连中…</code>？</summary>
+        <p>
+          Umbriel 没在运行，或者通信接口暂时不通。面板会自动每秒重试，
+          恢复后会变回 <code>● 已连接</code>，无需重启。
+        </p>
+      </details>
+    </section>
+
+    <!-- 10 -->
+    <section id="cli">
+      <h2>10. 进阶：命令行</h2>
+      <p>日常使用不需要命令行，但它在脚本和排查问题时很有用。</p>
+      <pre><code>scratchpads-umbriel [选项]
+
+  -c, --config &lt;路径&gt;   指定 Umbriel 配置文件，而不是按默认顺序查找
+      --socket &lt;路径&gt;   指定通信接口（默认 $UMBRIEL_SOCKET）
+      --window          用普通窗口打开，而不是全屏覆盖层
+      --dump            以纯文本打印所有暂存区及其窗口，然后退出
+      --add &lt;名称&gt;      新建一个暂存区
+      --spawn &lt;命令&gt;    配合 --add，指定“暂存区为空时运行什么”
+      --remove &lt;名称&gt;   删除一个暂存区
+  -h, --help            显示帮助
+  -v, --version         显示版本</code></pre>
+
+      <p><b>不打开界面，直接看清单：</b></p>
+      <pre><code>$ scratchpads-umbriel --dump
+config:  /home/me/.config/umbriel/config.toml
+managed: /home/me/.config/umbriel/scratchpads-managed.toml  (included)
+loaded:  5 file(s)
+
+[default] (implicit)  1 window(s), 1 visible
+    visible  kitty                ~</code></pre>
+      <p>输出里的 <code>visible</code> / <code>hidden</code> 表示该窗口当前是显示还是被收起。</p>
+
+      <div class="callout">
+        <span class="ico">ℹ️</span>
+        <p>
+          <code>--window</code> 会打开一个普通窗口而不是覆盖层，
+          适合在其它合成器上试用，或者调试。
+        </p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="trouble">
+      <h2>11. 出问题了怎么办</h2>
+      <ol>
+        <li>
+          <b>先看面板左下角的提示。</b> 操作失败时这里会直接显示原因
+          （例如“未知的暂存区名”或“配置目录不可写”）。
+        </li>
+        <li>
+          <b>用 <code>--dump</code> 看原始数据。</b>
+          <code>scratchpads-umbriel --dump</code> 会打印工具看到的全部暂存区与窗口，
+          方便对照是不是配置没生效。
+        </li>
+        <li>
+          <b>没有画面？</b> 属于正常降级，功能不受影响；想确认的话，
+          在终端里直接运行 <code>scratchpads-umbriel</code> 观察输出。
+        </li>
+        <li>
+          <b>配置目录不可写？</b> 新建 / 删除会被拒绝并说明原因。
+          把你的用户配置放到 <code>~/.config/umbriel/</code> 下即可。
+        </li>
+        <li>
+          <b>想回到干净状态？</b> 删除
+          <code>~/.config/umbriel/scratchpads-managed.toml</code>，
+          并从主配置的 <code>[include] files</code> 里去掉那一行引用。
+          之前创建的暂存区就会消失。
+        </li>
+      </ol>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      Scratchpads —— Umbriel 暂存区图形管理器 · 版本 0.1.0 ·
+      本页为离线文档，可直接在浏览器中打开，无需网络。
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>

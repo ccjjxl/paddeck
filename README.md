@@ -4,6 +4,9 @@ Umbriel 的 **scratchpad（暂存区）图形管理器**。用 C++20 + GTK4 + `g
 实现，以全屏覆盖层（overlay）的形式列出所有 scratchpad 及其窗口，并提供显示 / 隐藏、
 切换窗口、聚焦、归还窗口、以及创建 / 删除 scratchpad 的能力。
 
+> 面向普通用户的使用手册见 **[`docs/manual.html`](docs/manual.html)**（离线 HTML，
+> 直接用浏览器打开即可，无需网络）。本 README 面向开发者与维护者。
+
 每个 scratchpad 里的窗口以**缩略图网格**呈现（直接抓取窗口画面），而不是文字列表：
 
 ```
@@ -158,6 +161,9 @@ src/
     ├── theme.*                 Umbriel 配色 → GTK CSS（#rrggbbaa → rgba()）
     └── overlay_window.*        layer-shell 覆盖层与全部界面
 ```
+
+另有一份面向普通用户的离线 HTML 使用手册：`docs/manual.html`（自包含样式，
+无外部资源与脚本，支持深色 / 浅色与打印）。
 
 meson 会在构建时用 `wayland-scanner` 生成
 `ext-foreign-toplevel-list-v1` / `ext-image-capture-source-v1` /
