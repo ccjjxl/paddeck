@@ -142,6 +142,7 @@
   .callout.tip { border-left-color: var(--accent); }
   .callout.warn { border-left-color: var(--warn); }
   .callout .ico { flex: 0 0 auto; font-size: 1.1rem; line-height: 1.6; }
+  .callout-body { flex: 1; min-width: 0; }
   .callout p { margin: 4px 0; }
   .callout p:first-child { margin-top: 0; }
   .callout p:last-child { margin-bottom: 0; }
@@ -609,6 +610,54 @@ name = "notes"</code></pre>
       </p>
       <pre><code>[include]
 files = ["binds.toml", "scratchpads.toml"]</code></pre>
+
+      <h3>推荐：让暂存区窗口统一大小 <span class="pin">★</span></h3>
+      <p>
+        建议加上这一段。它让<b>任何</b>窗口一进入暂存区就自动变成
+        输出可用区域（已扣除 bar 等独占区）的 90% × 90% 并居中，
+        不管是什么应用、也不需要按应用名写规则：
+      </p>
+      <pre><code><span class="cmt"># ~/.config/umbriel/config.toml</span>
+[animation.scratchpad]
+scale = 0.9        <span class="cmt"># 0.1–1.0；0 表示保持窗口原有尺寸和位置</span></code></pre>
+      <p>
+        几个要点：
+      </p>
+      <ul>
+        <li>窗口进入暂存区时<b>本来就会自动浮动</b>，所以不需要再写
+            <code>default_floating = true</code>。</li>
+        <li>优先级是 <code>fullscreen</code> &gt; <code>maximize</code> &gt; <code>scale</code>，
+            想让 <code>scale</code> 生效，另外两项要保持 <code>false</code>（默认就是）。</li>
+        <li>尺寸有 100px 下限；这个值只在窗口<b>进入</b>暂存区的那一刻计算一次，
+            修改配置后，已经躺在暂存区里的旧窗口需要取出来再放回去才会套用新尺寸。</li>
+      </ul>
+
+      <div class="callout warn">
+        <span class="ico">⚠️</span>
+        <div class="callout-body">
+          <p>
+            <b>不要</b>试图用窗口规则来达到同样效果 —— 下面这样写是<b>不会生效</b>的：
+          </p>
+          <pre><code><span class="cmt"># ✗ 无效</span>
+[[window_rule]]
+match.is_scratchpad = true
+default_floating = true
+default_floating_size = { width = 0.9, height = 0.9 }</code></pre>
+          <p>
+            因为 <code>default_floating</code> / <code>default_floating_size</code>
+            属于<b>开窗设置</b>，只在窗口打开的那一刻结算一次，而那一刻窗口还不在暂存区里，
+            <code>match.is_scratchpad</code> 永远匹配不上。
+          </p>
+          <p>
+            <code>match.is_scratchpad</code> 只对<b>运行时状态</b>类字段有效，例如
+            <code>opacity</code>、<code>blur</code>、<code>border_color_focused</code>：
+          </p>
+          <pre><code><span class="cmt"># ✓ 有效：暂存区里的窗口统一半透明</span>
+[[window_rule]]
+match.is_scratchpad = true
+opacity = 0.9</code></pre>
+        </div>
+      </div>
     </section>
 
     <!-- 7 -->
@@ -633,6 +682,12 @@ files = ["binds.toml", "scratchpads.toml"]</code></pre>
         </li>
         <li>
           <b>面板外观是跟随主题的。</b> 颜色和圆角都取自你当前的 Umbriel 主题。
+        </li>
+        <li>
+          <b>让暂存区窗口统一大小。</b> 在 Umbriel 配置里加
+          <code>[animation.scratchpad]</code> 与 <code>scale = 0.9</code>，
+          任何窗口进暂存区都会变成 90% × 90% 并居中，详见
+          <a href="#config">第 6 节</a>。
         </li>
       </ul>
 

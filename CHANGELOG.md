@@ -33,7 +33,9 @@
 ### 其它
 
 - `ScratchpadDef` / `Scratchpad` 去掉 `managed` 标记与相关显示。
-- `docs/manual.html` 与 `README.md` 按新界面与按键重写。
+- `docs/manual.html` 与 `README.md` 按新界面与按键重写，并补充推荐的
+  Umbriel 配置（`[animation.scratchpad] scale = 0.9`）以及为什么不能用
+  `match.is_scratchpad` + `default_floating*` 达到同样效果。
 
 ### 已知限制
 

@@ -126,6 +126,42 @@ sudo ninja -C build install      # 安装到 /usr/local/bin/scratchpads-umbriel
   键盘交互为 `exclusive`，`exclusive_zone = 0`（不挤占其他窗口）。
   如需给它设置专属外观，可在配置里用 `[[layer_rule]]` 匹配该 namespace。
 
+### 推荐的 Umbriel 配置
+
+加上这一段，**任何**窗口进入暂存区时都会统一变成输出可用区域的 90% × 90% 并居中，
+与面板里看到的效果一致，也不需要按应用名逐个写规则：
+
+```toml
+# ~/.config/umbriel/config.toml
+[animation.scratchpad]
+scale = 0.9        # 0.1–1.0；0 表示保持窗口原有尺寸和位置
+```
+
+- 窗口进入暂存区时**本来就会自动浮动**，不必再写 `default_floating = true`。
+- 优先级 `fullscreen` > `maximize` > `scale`，后两者保持 `false`（默认值）即可。
+- 尺寸有 100px 下限；该值只在窗口**进入**暂存区时计算一次，改配置后已在暂存区里的
+  旧窗口需要取出来再放回去才会套用新尺寸。
+
+**不要**用窗口规则做同样的事，这样写**不会生效**：
+
+```toml
+# ✗ 无效：开窗设置只在窗口打开那一刻结算，那时它还不在暂存区里
+[[window_rule]]
+match.is_scratchpad = true
+default_floating = true
+default_floating_size = { width = 0.9, height = 0.9 }
+```
+
+`match.is_scratchpad` 只对**运行时状态**类字段有效，例如 `opacity`、`blur`、
+`border_color_focused`：
+
+```toml
+# ✓ 有效：暂存区里的窗口统一半透明
+[[window_rule]]
+match.is_scratchpad = true
+opacity = 0.9
+```
+
 ### 命令行
 
 ```
