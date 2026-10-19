@@ -2,6 +2,7 @@
 #include "ui/overlay_window.hpp"
 
 #include <algorithm>
+#include <cctype>
 
 #include <gdk/gdkkeysyms.h>
 #include <gtk4-layer-shell/gtk4-layer-shell.h>
@@ -11,6 +12,8 @@
 #include <gtkmm/button.h>
 #include <gtkmm/eventcontrollerkey.h>
 #include <gtkmm/gestureclick.h>
+#include <gtkmm/grid.h>
+#include <gtkmm/overlay.h>
 #include <gtkmm/popover.h>
 #include <gtkmm/separator.h>
 #include <gtkmm/styleprovider.h>
@@ -49,6 +52,42 @@ Glib::ustring plural(std::size_t count, const char* singular, const char* many) 
     return std::to_string(count) + " " + (count == 1 ? singular : many);
 }
 
+/// A two-letter stand-in shown while a window has no captured image.
+Glib::ustring window_monogram(const WindowInfo& w) {
+    const std::string& source = w.app_id.empty() ? w.title : w.app_id;
+    Glib::ustring monogram;
+    bool at_word_start = true;
+    for (char ch : source) {
+        const bool separator = ch == '-' || ch == '_' || ch == '.' || ch == ' ' || ch == ':';
+        if (at_word_start && !separator) {
+            monogram += static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+            if (monogram.size() >= 2) {
+                break;
+            }
+        }
+        at_word_start = separator;
+    }
+    if (monogram.empty()) {
+        monogram = "▢";
+    }
+    return monogram;
+}
+
+/// The one-line secondary caption under a window title.
+Glib::ustring window_meta(const WindowInfo& w) {
+    Glib::ustring meta = w.app_id.empty() ? Glib::ustring("unknown app") : Glib::ustring(w.app_id);
+    if (!w.output.empty()) {
+        meta += "  ·  " + w.output;
+    }
+    if (w.pinned) {
+        meta += "  ·  pinned";
+    }
+    if (w.floating) {
+        meta += "  ·  floating";
+    }
+    return meta;
+}
+
 void clear_box(Gtk::Box& box) {
     while (Gtk::Widget* child = box.get_first_child()) {
         box.remove(*child);
@@ -58,7 +97,8 @@ void clear_box(Gtk::Box& box) {
 }  // namespace
 
 OverlayWindow::OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_layer_shell)
-    : m_ipc(ipc), m_config(config) {    build_ui();
+    : m_ipc(ipc), m_config(config) {
+    build_ui();
 
     m_css = Gtk::CssProvider::create();
     if (auto display = Gdk::Display::get_default()) {
@@ -80,12 +120,29 @@ OverlayWindow::OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_laye
     m_ipc.signal_connection.connect(sigc::mem_fun(*this, &OverlayWindow::on_connection));
     m_ipc.signal_action_result.connect(sigc::mem_fun(*this, &OverlayWindow::on_action_result));
 
+    // Window previews need ext-image-copy-capture-v1; without it the overlay
+    // still works, it just stays textual.
+    m_capture.set_frame_callback(sigc::mem_fun(*this, &OverlayWindow::on_thumbnail));
+    m_capture.start();
+
+    property_visible().signal_changed().connect([this] {
+        if (get_visible()) {
+            m_capture.invalidate();
+            update_capture_targets();
+        } else {
+            m_capture.set_targets({});
+        }
+    });
+
     set_hide_on_close(true);
     reload_config();
     rebuild();
 }
 
-OverlayWindow::~OverlayWindow() { clear_menus(); }
+OverlayWindow::~OverlayWindow() {
+    m_capture.stop();
+    clear_menus();
+}
 
 void OverlayWindow::setup_layer_shell() {
     auto* window = GTK_WINDOW(gobj());
@@ -113,7 +170,7 @@ void OverlayWindow::build_ui() {
     m_card->add_css_class("spm-card");
     m_card->set_halign(Gtk::Align::CENTER);
     m_card->set_valign(Gtk::Align::CENTER);
-    m_card->set_size_request(560, -1);
+    m_card->set_size_request(760, -1);
     m_backdrop->set_center_widget(*m_card);
 
     auto* header = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
@@ -127,12 +184,14 @@ void OverlayWindow::build_ui() {
     m_connection->set_halign(Gtk::Align::END);
     header->append(*m_connection);
 
-    auto* refresh = icon_button("⟳", "Reload configuration and window list");
-    refresh->signal_clicked().connect([this] {
-        reload_config();
-        rebuild();
-        set_status("Reloaded configuration.", false);
-    });
+    m_preview_toggle = icon_button("▦", "Toggle window previews");
+    m_preview_toggle->add_css_class("spm-toggle");
+    m_preview_toggle->add_css_class("spm-toggle-on");
+    m_preview_toggle->signal_clicked().connect([this] { toggle_previews(); });
+    header->append(*m_preview_toggle);
+
+    auto* refresh = icon_button("⟳", "Reload configuration and re-capture previews");
+    refresh->signal_clicked().connect([this] { refresh_previews(); });
     header->append(*refresh);
 
     auto* close = icon_button("✕", "Close (Esc)");
@@ -163,10 +222,10 @@ void OverlayWindow::build_ui() {
     m_scroll->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
     // Hug the content, but never grow past a comfortable maximum.
     m_scroll->set_propagate_natural_height(true);
-    m_scroll->set_max_content_height(440);
+    m_scroll->set_max_content_height(600);
     m_scroll->set_min_content_height(0);
     m_scroll->set_vexpand(false);
-    m_list = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 8);
+    m_list = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 10);
     m_list->set_margin_end(6);
     m_scroll->set_child(*m_list);
     m_card->append(*m_scroll);
@@ -324,8 +383,18 @@ void OverlayWindow::rebuild() {
         return;
     }
     m_scratchpads = build_scratchpads(m_config.defs(), m_windows);
+    // Slots point into the widget tree that is about to be torn down.
+    m_thumb_slots.clear();
     clear_menus();
     clear_box(*m_list);
+
+    // Drop cached previews of windows that no longer exist.
+    for (auto it = m_thumb_cache.begin(); it != m_thumb_cache.end();) {
+        const bool alive = std::any_of(
+            m_windows.begin(), m_windows.end(),
+            [&id = it->first](const WindowInfo& w) { return w.id == id; });
+        it = alive ? std::next(it) : m_thumb_cache.erase(it);
+    }
 
     bool any = false;
     for (const auto& sp : m_scratchpads) {
@@ -343,6 +412,63 @@ void OverlayWindow::rebuild() {
         empty->add_css_class("spm-empty");
         empty->set_xalign(0.0f);
         m_list->append(*empty);
+    }
+
+    update_capture_targets();
+}
+
+void OverlayWindow::update_capture_targets() {
+    if (!m_previews || !get_visible()) {
+        m_capture.set_targets({});
+        return;
+    }
+    std::vector<std::string> ids;
+    ids.reserve(m_thumb_slots.size());
+    for (const auto& [id, slot] : m_thumb_slots) {
+        ids.push_back(id);
+    }
+    m_capture.set_targets(std::move(ids));
+}
+
+void OverlayWindow::toggle_previews() {
+    m_previews = !m_previews;
+    if (m_preview_toggle != nullptr) {
+        if (m_previews) {
+            m_preview_toggle->add_css_class("spm-toggle-on");
+        } else {
+            m_preview_toggle->remove_css_class("spm-toggle-on");
+        }
+    }
+    rebuild();
+    set_status(m_previews ? "Window previews on." : "Window previews off.", false);
+}
+
+void OverlayWindow::refresh_previews() {
+    reload_config();
+    m_thumb_cache.clear();
+    rebuild();
+    m_capture.invalidate();
+    set_status("Reloaded configuration and refreshed previews.", false);
+}
+
+void OverlayWindow::on_thumbnail(Thumbnail thumbnail) {
+    if (!thumbnail.ok || !thumbnail.pixbuf) {
+        auto slot = m_thumb_slots.find(thumbnail.window_id);
+        if (slot != m_thumb_slots.end() && slot->second.hint != nullptr) {
+            slot->second.hint->set_text("no preview");
+        }
+        return;
+    }
+    m_thumb_cache[thumbnail.window_id] = thumbnail.pixbuf;
+    auto slot = m_thumb_slots.find(thumbnail.window_id);
+    if (slot == m_thumb_slots.end()) {
+        return;
+    }
+    if (slot->second.picture != nullptr) {
+        slot->second.picture->set_pixbuf(thumbnail.pixbuf);
+    }
+    if (slot->second.placeholder != nullptr) {
+        slot->second.placeholder->set_visible(false);
     }
 }
 
@@ -505,12 +631,27 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp) {
     }
 
     int shown = 0;
-    for (const auto& window : sp.windows) {
-        if (!matches_filter(window)) {
-            continue;
+    if (!sp.windows.empty() && scratchpad_has_matches(sp)) {
+        // Previews are laid out two per row; without previews the tiles are
+        // single-line rows, so one per row reads better.
+        const int columns = m_previews ? 2 : 1;
+        auto* grid = Gtk::make_managed<Gtk::Grid>();
+        grid->add_css_class("spm-grid");
+        grid->set_column_homogeneous(true);
+        grid->set_row_spacing(8);
+        grid->set_column_spacing(8);
+        grid->set_valign(Gtk::Align::START);
+
+        for (const auto& window : sp.windows) {
+            if (!matches_filter(window)) {
+                continue;
+            }
+            grid->attach(*build_window_tile(window, sp), shown % columns, shown / columns, 1, 1);
+            ++shown;
         }
-        outer->append(*build_window_row(window, sp));
-        ++shown;
+        if (shown > 0) {
+            outer->append(*grid);
+        }
     }
 
     if (shown == 0) {
@@ -532,71 +673,120 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp) {
     return outer;
 }
 
-Gtk::Widget* OverlayWindow::build_window_row(const WindowInfo& w, const Scratchpad& sp) {
-    auto* row = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
-    row->add_css_class("spm-win");
-    if (w.focused) {
-        row->add_css_class("spm-win-focused");
-    } else if (w.visible) {
-        row->add_css_class("spm-win-visible");
-    }
+Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w, const Scratchpad& sp) {
+    const std::string id = w.id;
 
-    auto* text = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 1);
+    auto* tile = Gtk::make_managed<Gtk::Overlay>();
+    tile->add_css_class("spm-tile");
+    if (w.urgent) {
+        tile->add_css_class("spm-tile-urgent");
+    } else if (w.focused) {
+        tile->add_css_class("spm-tile-focused");
+    } else if (w.visible) {
+        tile->add_css_class("spm-tile-visible");
+    }
+    tile->set_hexpand(true);
+
+    // The caption bar is the bottom overlay of a preview tile, and the whole
+    // tile when previews are switched off.
+    auto* bar = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 4);
+    bar->add_css_class("spm-tile-bar");
+
+    auto* text = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 0);
     text->set_hexpand(true);
 
     auto* title = Gtk::make_managed<Gtk::Label>();
     title->set_text(w.title.empty() ? Glib::ustring("(untitled)") : Glib::ustring(w.title));
-    title->add_css_class("spm-win-title");
+    title->add_css_class("spm-tile-title");
     title->set_xalign(0.0f);
     title->set_ellipsize(Pango::EllipsizeMode::END);
     title->set_single_line_mode(true);
-    if (w.urgent) {
-        title->add_css_class("spm-urgent");
-    }
     text->append(*title);
 
-    Glib::ustring meta = w.app_id.empty() ? Glib::ustring("unknown app") : Glib::ustring(w.app_id);
-    if (!w.output.empty()) {
-        meta += "  ·  " + w.output;
-    }
-    if (!w.workspace.empty()) {
-        meta += "  ·  " + w.workspace;
-    }
-    if (w.focused) {
-        meta += "  ·  focused";
-    } else if (w.visible) {
-        meta += "  ·  visible";
-    }
-    if (w.pinned) {
-        meta += "  ·  pinned";
-    }
-    if (w.floating) {
-        meta += "  ·  floating";
-    }
-    auto* meta_label = Gtk::make_managed<Gtk::Label>(meta);
-    meta_label->add_css_class("spm-win-meta");
-    meta_label->set_xalign(0.0f);
-    meta_label->set_ellipsize(Pango::EllipsizeMode::END);
-    meta_label->set_single_line_mode(true);
-    text->append(*meta_label);
-    row->append(*text);
+    auto* meta = Gtk::make_managed<Gtk::Label>(window_meta(w));
+    meta->add_css_class("spm-tile-meta");
+    meta->set_xalign(0.0f);
+    meta->set_ellipsize(Pango::EllipsizeMode::END);
+    meta->set_single_line_mode(true);
+    text->append(*meta);
+    bar->append(*text);
 
-    auto* focus = primary_button("Focus", "window-focus:" + w.id);
-    focus->signal_clicked().connect([this, id = w.id] { run("window-focus:" + id); });
-    row->append(*focus);
-
-    auto* unstore = icon_button("Unstore", "Return this window to its workspace");
-    unstore->signal_clicked().connect([this, id = w.id, name = sp.name] {
+    auto* unstore = icon_button("↩", "Return this window to its workspace");
+    unstore->add_css_class("spm-tile-action");
+    unstore->signal_clicked().connect([this, id, name = sp.name] {
         run("window-focus:" + id);
         run("window-restore-from-scratchpad:" + name);
     });
-    row->append(*unstore);
+    bar->append(*unstore);
 
     auto* close = icon_button("✕", "Close this window");
-    close->signal_clicked().connect([this, id = w.id] { run("window-close:" + id); });
-    row->append(*close);
+    close->add_css_class("spm-tile-action");
+    close->add_css_class("spm-tile-close");
+    close->signal_clicked().connect([this, id] { run("window-close:" + id); });
+    bar->append(*close);
 
-    return row;
+    // Clicking the preview itself focuses the window; the buttons above claim
+    // their own clicks, so they do not double up.
+    auto gesture = Gtk::GestureClick::create();
+    gesture->signal_released().connect([this, id](int, double, double) {
+        run("window-focus:" + id);
+    });
+    tile->add_controller(gesture);
+
+    if (!m_previews) {
+        tile->add_css_class("spm-tile-compact");
+        tile->set_child(*bar);
+        return tile;
+    }
+
+    auto* picture = Gtk::make_managed<Gtk::Picture>();
+    picture->add_css_class("spm-tile-shot");
+    picture->set_content_fit(Gtk::ContentFit::CONTAIN);
+    picture->set_can_shrink(true);
+    picture->set_size_request(330, 186);
+    tile->set_child(*picture);
+
+    // Shown until a captured image arrives, or forever when capture is not
+    // possible for this window.
+    auto* placeholder = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 2);
+    placeholder->add_css_class("spm-tile-placeholder");
+    placeholder->set_halign(Gtk::Align::CENTER);
+    placeholder->set_valign(Gtk::Align::CENTER);
+
+    auto* monogram = Gtk::make_managed<Gtk::Label>(window_monogram(w));
+    monogram->add_css_class("spm-tile-monogram");
+    monogram->set_xalign(0.5f);
+    placeholder->append(*monogram);
+
+    auto* hint = Gtk::make_managed<Gtk::Label>(
+        m_capture.available() ? "capturing…" : "no preview available");
+    hint->add_css_class("spm-tile-hint");
+    hint->set_xalign(0.5f);
+    placeholder->append(*hint);
+    tile->add_overlay(*placeholder);
+
+    if (w.urgent || w.focused || w.visible) {
+        auto* pill = Gtk::make_managed<Gtk::Label>(
+            w.urgent ? "urgent" : (w.focused ? "focused" : "visible"));
+        pill->add_css_class("spm-badge");
+        pill->add_css_class(w.urgent ? "spm-badge-urgent" : "spm-badge-on");
+        pill->set_halign(Gtk::Align::START);
+        pill->set_valign(Gtk::Align::START);
+        pill->set_margin_start(8);
+        pill->set_margin_top(8);
+        tile->add_overlay(*pill);
+    }
+
+    bar->set_valign(Gtk::Align::END);
+    tile->add_overlay(*bar);
+
+    const auto cached = m_thumb_cache.find(id);
+    if (cached != m_thumb_cache.end() && cached->second) {
+        picture->set_pixbuf(cached->second);
+        placeholder->set_visible(false);
+    }
+    m_thumb_slots[id] = ThumbSlot{picture, placeholder, hint};
+    return tile;
 }
 
 void OverlayWindow::hide_prompt() {

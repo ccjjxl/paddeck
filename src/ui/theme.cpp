@@ -102,6 +102,9 @@ std::string build_css(const Theme& t) {
     css << "button.spm-icon:active { background-color: " << css_color(t.text_primary, 0.20)
         << "; }\n";
 
+    css << "button.spm-toggle { color: " << css_color(t.text_muted, 0.5) << "; }\n";
+    css << "button.spm-toggle-on { color: " << css_color(t.accent_secondary) << "; }\n";
+
     css << "button.spm-primary { background: none; border: 1px solid "
         << css_color(t.accent_primary, 0.7) << "; box-shadow: none;"
         << " color: " << css_color(t.accent_primary) << "; padding: 1px 10px;"
@@ -124,20 +127,41 @@ std::string build_css(const Theme& t) {
         << "; font-weight: bold; font-size: 1.0em; }\n";
 
     css << ".spm-badge { border-radius: 999px; padding: 0px 8px; font-size: 0.76em;"
-        << " font-weight: bold; }\n";
+        << " font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.45); }\n";
     css << ".spm-badge-on { background-color: " << css_color(t.accent_secondary);
     css << "; color: " << css_color(t.background) << "; }\n";
     css << ".spm-badge-off { background-color: " << css_color(t.text_muted, 0.16);
     css << "; color: " << css_color(t.text_muted) << "; }\n";
+    css << ".spm-badge-urgent { background-color: " << css_color(t.warning);
+    css << "; color: " << css_color(t.background) << "; }\n";
 
-    css << ".spm-win { background-color: " << css_color(t.text_primary, 0.05)
-        << "; border-radius: " << px(inner > 6 ? inner - 2 : inner) << "; padding: 7px 9px;"
-        << " border-left: 3px solid transparent; }\n";
-    css << ".spm-win-visible { border-left-color: " << css_color(t.accent_primary) << "; }\n";
-    css << ".spm-win-focused { border-left-color: " << css_color(t.accent_secondary) << "; }\n";
-    css << ".spm-win-title { color: " << css_color(t.text_primary) << "; font-size: 0.94em; }\n";
-    css << ".spm-win-meta { color: " << css_color(t.text_muted) << "; font-size: 0.78em; }\n";
-    css << ".spm-urgent { color: " << css_color(t.warning) << "; }\n";
+    // Window preview grid: one tile per window, showing the captured image.
+    css << ".spm-tile { background-color: " << css_color(t.text_primary, 0.05)
+        << "; border: 1px solid " << css_color(t.border_unfocused, 1.5) << ";"
+        << " border-radius: " << px(inner) << "; }\n";
+    css << ".spm-tile-visible { border-color: " << css_color(t.accent_primary, 0.5) << "; }\n";
+    css << ".spm-tile-focused { border-color: " << css_color(t.accent_secondary, 0.9) << "; }\n";
+    css << ".spm-tile-urgent { border-color: " << css_color(t.warning, 0.9) << "; }\n";
+    css << ".spm-tile-shot { background-color: rgba(0,0,0,0.30); border-radius: "
+        << px(inner) << "; }\n";
+    css << ".spm-tile-monogram { color: " << css_color(t.text_primary, 0.30)
+        << "; font-weight: bold; font-size: 2.6em; }\n";
+    css << ".spm-tile-hint { color: " << css_color(t.text_muted, 0.85)
+        << "; font-size: 0.74em; }\n";
+    css << ".spm-tile-bar { background-color: " << css_color(t.background, 0.94)
+        << "; padding: 5px 8px; border-bottom-left-radius: " << px(inner)
+        << "; border-bottom-right-radius: " << px(inner) << "; }\n";
+    css << ".spm-tile-compact .spm-tile-bar { border-radius: " << px(inner) << "; }\n";
+    css << ".spm-tile-title { color: " << css_color(t.text_primary) << "; font-size: 0.88em; }\n";
+    css << ".spm-tile-meta { color: " << css_color(t.text_muted) << "; font-size: 0.72em; }\n";
+    css << "button.spm-tile-action { background: none; border: none; box-shadow: none;"
+        << " color: " << css_color(t.text_muted) << "; padding: 1px 6px; min-height: 20px;"
+        << " border-radius: 5px; font-size: 0.9em; }\n";
+    css << "button.spm-tile-action:hover { background-color: " << css_color(t.text_primary, 0.14)
+        << "; color: " << css_color(t.text_primary) << "; }\n";
+    css << "button.spm-tile-close:hover { background-color: " << css_color(t.error, 0.20)
+        << "; color: " << css_color(t.error) << "; }\n";
+
     css << ".spm-error { color: " << css_color(t.error) << "; }\n";
     css << ".spm-ok { color: " << css_color(t.accent_secondary) << "; }\n";
 

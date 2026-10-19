@@ -2,7 +2,9 @@
 // The gtk4-layer-shell overlay that manages Umbriel scratchpads.
 #pragma once
 
+#include <chrono>
 #include <functional>
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -14,13 +16,16 @@
 #include <gtkmm/centerbox.h>
 #include <gtkmm/cssprovider.h>
 #include <gtkmm/entry.h>
+#include <gtkmm/grid.h>
 #include <gtkmm/label.h>
+#include <gtkmm/picture.h>
 #include <gtkmm/popover.h>
 #include <gtkmm/scrolledwindow.h>
 
 #include "model/config_store.hpp"
 #include "model/scratchpad.hpp"
 #include "model/types.hpp"
+#include "umbriel/capture.hpp"
 #include "umbriel/ipc.hpp"
 
 namespace spm {
@@ -44,6 +49,14 @@ private:
         bool separator_before = false;
     };
 
+    /// The live widgets of one window preview tile, so an asynchronously
+    /// captured image can be dropped into the right place.
+    struct ThumbSlot {
+        Gtk::Picture* picture = nullptr;
+        Gtk::Widget* placeholder = nullptr;
+        Gtk::Label* hint = nullptr;
+    };
+
     void build_ui();
     void setup_layer_shell();
 
@@ -51,12 +64,17 @@ private:
     void on_windows(std::vector<WindowInfo> windows);
     void on_connection(bool connected);
     void on_action_result(std::string action, bool ok, std::string error);
+    void on_thumbnail(Thumbnail thumbnail);
 
     void reload_config();
     void rebuild();
 
+    void update_capture_targets();
+    void toggle_previews();
+    void refresh_previews();
+
     Gtk::Widget* build_scratchpad_card(const Scratchpad& sp);
-    Gtk::Widget* build_window_row(const WindowInfo& w, const Scratchpad& sp);
+    Gtk::Widget* build_window_tile(const WindowInfo& w, const Scratchpad& sp);
     Gtk::Widget* build_action_menu(std::vector<MenuEntry> entries);
     void clear_menus();
     void run(std::string action);
@@ -78,6 +96,7 @@ private:
 
     UmbrielIpc& m_ipc;
     ConfigStore& m_config;
+    CaptureClient m_capture;
 
     std::vector<WindowInfo> m_windows;
     std::vector<Scratchpad> m_scratchpads;
@@ -85,6 +104,13 @@ private:
     std::set<std::string> m_collapsed;
     Glib::ustring m_filter;
     bool m_connected = false;
+    bool m_previews = true;
+
+    /// Last captured image per window id; reused when the list is rebuilt so
+    /// tiles do not flash empty.
+    std::map<std::string, Glib::RefPtr<Gdk::Pixbuf>> m_thumb_cache;
+    /// Tiles of the current rebuild, keyed by window id.
+    std::map<std::string, ThumbSlot> m_thumb_slots;
 
     Glib::RefPtr<Gtk::CssProvider> m_css;
 
@@ -99,6 +125,7 @@ private:
     Gtk::Label* m_status = nullptr;
     Gtk::Label* m_connection = nullptr;
     Gtk::ScrolledWindow* m_scroll = nullptr;
+    Gtk::Button* m_preview_toggle = nullptr;
     std::vector<Gtk::Popover*> m_menu_popovers;  // owned by us; see clear_menus()
 };
 

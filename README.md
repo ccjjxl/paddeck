@@ -4,21 +4,29 @@ Umbriel 的 **scratchpad（暂存区）图形管理器**。用 C++20 + GTK4 + `g
 实现，以全屏覆盖层（overlay）的形式列出所有 scratchpad 及其窗口，并提供显示 / 隐藏、
 切换窗口、聚焦、归还窗口、以及创建 / 删除 scratchpad 的能力。
 
+每个 scratchpad 里的窗口以**缩略图网格**呈现（直接抓取窗口画面），而不是文字列表：
+
 ```
-┌───────────────────────────────────────────────────────────┐
-│  Scratchpads                       ● connected   ○     ✕    │
-│  显示、隐藏、聚焦并重新整理 Umbriel scratchpad 中的窗口。   │
-│  [ 按标题或 app id 过滤…                                ] │
-│ ┌───────────────────────────────────────────────────────┐ │
-│ │ ▾ default      implicit  [visible]  1 window          │ │
-│ │                    [Hide]  ◂  ▸      ⋮                │ │
-│ │ ┌───────────────────────────────────────────────────┐ │ │
-│ │ │ kitty                          [Focus] Unstore ✕  │ │ │
-│ │ │ kitty · HDMI-A-1 · visible                        │ │ │
-│ │ └───────────────────────────────────────────────────┘ │ │
-│ └───────────────────────────────────────────────────────┘ │
-│ [＋ New scratchpad]  Reload config  Open config           │
-└───────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  Scratchpads                          ● connected     ▦      ⟳   ✕  │
+│  显示、隐藏、聚焦并重新整理 Umbriel scratchpad 中的窗口。           │
+│  [ 按标题或 app id 过滤…                                          ] │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ ▾ default        implicit   [hidden]   4 windows                │ │
+│ │                                        [Show]  ◂  ▸      ⋮      │ │
+│ │ ┌───────────────────────────┐ ┌───────────────────────────┐    │ │
+│ │ │  ╭──────╮                 │ │        ╭──────╮           │    │ │
+│ │ │  │ 窗口 │  ← 真实画面缩略图 │ │        │ 窗口 │           │    │ │
+│ │ │  ╰──────╯                 │ │        ╰──────╯           │    │ │
+│ │ │ OC | 用 C++ GTK4 …     ↩ ✕│ │ foot                  ↩ ✕ │    │ │
+│ │ └───────────────────────────┘ └───────────────────────────┘    │ │
+│ │ ┌───────────────────────────┐ ┌───────────────────────────┐    │ │
+│ │ │   （隐藏窗口同样能取到画面） │ │                           │    │ │
+│ │ │ foot                  ↩ ✕ │ │ foot                  ↩ ✕ │    │ │
+│ │ └───────────────────────────┘ └───────────────────────────┘    │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│ [＋ New scratchpad]  Reload config  Open config                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 功能
@@ -34,9 +42,26 @@ Umbriel 的 **scratchpad（暂存区）图形管理器**。用 C++20 + GTK4 + `g
   - Move focused window here → `window-move-to-scratchpad:<name>`
   - Reveal in configuration → 用默认编辑器打开定义该 scratchpad 的文件
   - Delete scratchpad… （仅对由本工具创建、位于托管文件中的条目可见）
-- 每个成员窗口：`Focus` → `window-focus:<id>`，`Unstore` → 先聚焦再
-  `window-restore-from-scratchpad:<name>`，`✕` → `window-close:<id>`。
+- 每个成员窗口显示为**缩略图卡片**，使用真实窗口画面：
+  - **点击缩略图** → `window-focus:<id>`；卡片右下角 `↩` → 先聚焦再
+    `window-restore-from-scratchpad:<name>`；`✕` → `window-close:<id>`。
+  - 卡片左上角的状态标签（`focused` / `visible` / `urgent`）与边框颜色反映窗口状态。
+  - 缩略图缺失时显示 app id 首字母（如 `GC`、`FO`）与 `capturing…` / `no preview`。
+- 顶部 `▦` 开关缩略图模式：关闭后卡片变成紧凑的整行文字条目，同时停止抓帧（省电）。
+- 顶部 `⟳` 重新读取配置、清空缩略图缓存并强制重新抓帧。
 - 顶部过滤框按窗口标题 / app id 实时筛选；折叠状态、断线重连均有提示。
+
+**窗口预览（缩略图）**
+
+- 通过 Wayland 的 `ext-image-copy-capture-v1` + `ext-foreign-toplevel-list-v1`
+  协议逐窗口抓帧，因此**隐藏在 scratchpad 里的窗口也能取到真实画面**——这正是
+  scratchpad 场景最有用的地方。`ext_foreign_toplevel_handle_v1` 给出的 identifier
+  与 Umbriel IPC 的 window id 完全一致，两边可以精确对应，无需靠标题猜测。
+- 抓帧在独立的工作线程里进行（自带一条 Wayland 连接），成品通过 `Glib::Dispatcher`
+  交回 GTK 主线程；缩略图统一缩放到 330×186 的画布，保证网格整齐。
+- 覆盖层可见时每 4 秒刷新一次；隐藏时立刻停止抓帧。抓帧失败会退避 20 秒再试。
+- 合成器不支持这些协议时，覆盖层自动退化为纯文字列表（显示 `no preview available`），
+  功能不受影响。
 
 **配置管理（可选，写入独立的托管文件）**
 
@@ -57,6 +82,8 @@ Umbriel 的 **scratchpad（暂存区）图形管理器**。用 C++20 + GTK4 + `g
 | gtk4-layer-shell-0 | ≥ 1.0（构建环境 1.3） | layer-shell 覆盖层 |
 | nlohmann_json | 任意 | IPC JSON |
 | tomlplusplus | ≥ 3.0 | 读取 / 写入配置 |
+| wayland-client | 任意 | 窗口抓帧的底层连接 |
+| wayland-protocols | ≥ 1.36 | 生成 `ext-image-copy-capture-v1` 等协议代码 |
 | meson + ninja | — | 构建 |
 
 运行时需要正在运行的 Umbriel 会话（通过 `$UMBRIEL_SOCKET`，否则回退到
@@ -125,11 +152,16 @@ src/
 │   ├── scratchpad.*            把配置定义与实时窗口合并为 Scratchpad 列表
 │   └── config_store.*          递归 include 解析、托管文件读写、include 注入
 ├── umbriel/
-│   └── ipc.*                   Unix socket 客户端：订阅事件 + 动作队列
+│   ├── ipc.*                   Unix socket 客户端：订阅事件 + 动作队列
+│   └── capture.*               独立线程的逐窗口抓帧客户端（ext-image-copy-capture-v1）
 └── ui/
     ├── theme.*                 Umbriel 配色 → GTK CSS（#rrggbbaa → rgba()）
     └── overlay_window.*        layer-shell 覆盖层与全部界面
 ```
+
+meson 会在构建时用 `wayland-scanner` 生成
+`ext-foreign-toplevel-list-v1` / `ext-image-capture-source-v1` /
+`ext-image-copy-capture-v1` 的绑定代码，编译成静态库后链接进主程序。
 
 - **IPC**：`{"cmd":"subscribe","events":["windows","theme"]}` 提供全量快照
   （Umbriel 的 payload 是快照而非增量），运行在独立线程，用 `Glib::Dispatcher`
@@ -142,6 +174,10 @@ src/
   不重新序列化整个文件，因此注释和排版都会保留。
 - **颜色**：`GdkRGBA` 不接受 `#rrggbbaa`，所以把 Umbriel 的 8 位十六进制颜色
   转成 `rgba(r,g,b,a)` 再交给 CSS。
+- **窗口预览**：抓帧线程自己持有 `wl_display`，只在覆盖层可见时工作；每帧先按
+  `buffer_size` / `shm_format` 约束创建 shm buffer，读回像素后再缩放到固定画布。
+  `ext_foreign_toplevel_handle_v1` 的 identifier 就是 Umbriel 的 window id，
+  两者是同一套字符串。
 
 ## 注意事项
 
