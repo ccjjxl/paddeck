@@ -77,13 +77,22 @@ std::string build_css(const Theme& t) {
     const int radius = t.corner_radius > 0 ? t.corner_radius : 10;
     const int inner = radius > 4 ? radius - 4 : 4;
 
+    // Umbriel's `colors.border` values describe *windows*, and its `unfocused`
+    // default is the panel background itself, so an outline drawn from it is
+    // invisible on a card. Panels outline themselves from the text colour
+    // instead: it always contrasts with whatever surface the theme picked, and
+    // the selection adds the accent on top of it.
+    const std::string edge = css_color(t.text_primary, 0.20);
+    const std::string edge_strong = css_color(t.text_primary, 0.46);
+    const std::string accent = css_color(t.accent_primary);
+
     std::ostringstream css;
     css << "window.spm-window, .spm-backdrop { background: transparent; }\n";
     css << ".spm-backdrop { background-color: rgba(0,0,0,0.45); }\n";
 
     css << ".spm-card {"
         << " background-color: " << css_color(t.background) << ";"
-        << " border: 1px solid " << css_color(t.border_unfocused, 1.6) << ";"
+        << " border: 1px solid " << css_color(t.text_primary, 0.30) << ";"
         << " border-radius: " << px(radius) << ";"
         << " padding: 16px;"
         << " box-shadow: 0 12px 40px " << css_color(t.shadow) << ";"
@@ -97,13 +106,22 @@ std::string build_css(const Theme& t) {
         << "; font-size: 0.78em; font-family: monospace; }\n";
 
     // The selected card is the whole interface: everything the keys do acts on
-    // it, so it gets the accent border and a slightly brighter surface.
-    css << ".spm-sp { background-color: " << css_color(t.text_primary, 0.045)
-        << "; border: 1px solid " << css_color(t.border_unfocused, 1.4) << ";"
+    // it. Every card carries the same neutral gutter down its left edge; the
+    // selection redraws it and its ring in the accent. The thicker selected
+    // border is offset by one pixel less padding on each side, so the content
+    // keeps its exact position and the selection never nudges the tiles.
+    css << ".spm-sp { background-color: " << css_color(t.text_primary, 0.04)
+        << "; border: 1px solid " << edge << ";"
+        << " border-left: 5px solid " << edge << ";"
         << " border-radius: " << px(inner) << "; padding: 10px; }\n";
     css << ".spm-sp:focus, .spm-sp:focus-visible { outline: none; }\n";
-    css << ".spm-sp-selected { background-color: " << css_color(t.text_primary, 0.075)
-        << "; border-color: " << css_color(t.accent_primary) << "; }\n";
+    css << ".spm-sp-selected { background-color: " << css_color(t.text_primary, 0.10)
+        << "; border-color: " << accent << ";"
+        << " border-width: 2px;"
+        << " border-left-color: " << accent << ";"
+        << " border-left-width: 6px;"
+        << " padding: 9px;"
+        << " box-shadow: 0 4px 14px " << css_color(t.shadow) << "; }\n";
     css << ".spm-sp-name { color: " << css_color(t.text_primary)
         << "; font-weight: bold; font-size: 1.0em; }\n";
     css << ".spm-sp-selected .spm-sp-name { color: " << css_color(t.accent_primary) << "; }\n";
@@ -118,12 +136,14 @@ std::string build_css(const Theme& t) {
     css << "; color: " << css_color(t.background) << "; }\n";
 
     // Window preview grid: one tile per window, showing the captured image.
+    // State colour stays on the border alone: "visible" only brightens the
+    // neutral edge so the accent keeps meaning "the selection".
     css << ".spm-tile { background-color: " << css_color(t.text_primary, 0.05)
-        << "; border: 1px solid " << css_color(t.border_unfocused, 1.5) << ";"
+        << "; border: 1px solid " << edge << ";"
         << " border-radius: " << px(inner) << "; }\n";
-    css << ".spm-tile-visible { border-color: " << css_color(t.accent_primary, 0.5) << "; }\n";
-    css << ".spm-tile-focused { border-color: " << css_color(t.accent_secondary, 0.9) << "; }\n";
-    css << ".spm-tile-urgent { border-color: " << css_color(t.warning, 0.9) << "; }\n";
+    css << ".spm-tile-visible { border-color: " << edge_strong << "; }\n";
+    css << ".spm-tile-focused { border-color: " << css_color(t.accent_secondary) << "; }\n";
+    css << ".spm-tile-urgent { border-color: " << css_color(t.warning) << "; }\n";
     css << ".spm-tile-shot { background-color: rgba(0,0,0,0.30); border-radius: "
         << px(inner) << "; }\n";
     css << ".spm-tile-monogram { color: " << css_color(t.text_primary, 0.30)

@@ -44,8 +44,6 @@ struct Theme {
     std::string error = "#D96B6BFF";
     std::string backdrop = "#3A3040FF";
     std::string shadow = "#0000007F";
-    std::string border_focused = "#E8A87CFF";
-    std::string border_unfocused = "#3A3040FF";
     int corner_radius = 10;
 };
 
