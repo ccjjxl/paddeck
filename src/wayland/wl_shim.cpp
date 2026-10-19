@@ -3,9 +3,11 @@
 
 #include <dlfcn.h>
 
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 #include <vector>
 
 namespace paddeck::wl_shim {
@@ -33,7 +35,8 @@ ProxyGetQueueFn g_proxy_get_queue = nullptr;
 ProxyGetUserDataFn g_proxy_get_user_data = nullptr;
 ProxySetUserDataFn g_proxy_set_user_data = nullptr;
 ProxyGetDisplayFn g_proxy_get_display = nullptr;
-bool g_resolved = false;
+std::atomic<bool> g_resolved{false};
+std::once_flag g_resolve_once;
 
 void* resolve_symbol(const char* name) {
     // Look the symbol up on the library itself rather than with RTLD_NEXT:
@@ -47,33 +50,36 @@ void* resolve_symbol(const char* name) {
 }
 
 void resolve() {
-    if (g_resolved) return;
-    g_marshal_array_flags = reinterpret_cast<MarshalArrayFlagsFn>(
-        resolve_symbol("wl_proxy_marshal_array_flags"));
-    g_proxy_destroy = reinterpret_cast<ProxyDestroyFn>(
-        resolve_symbol("wl_proxy_destroy"));
-    g_proxy_add_listener = reinterpret_cast<ProxyAddListenerFn>(
-        resolve_symbol("wl_proxy_add_listener"));
-    g_proxy_get_version = reinterpret_cast<ProxyGetVersionFn>(
-        resolve_symbol("wl_proxy_get_version"));
-    g_proxy_set_queue = reinterpret_cast<ProxySetQueueFn>(
-        resolve_symbol("wl_proxy_set_queue"));
-    g_proxy_get_queue = reinterpret_cast<ProxyGetQueueFn>(
-        resolve_symbol("wl_proxy_get_queue"));
-    g_proxy_get_user_data = reinterpret_cast<ProxyGetUserDataFn>(
-        resolve_symbol("wl_proxy_get_user_data"));
-    g_proxy_set_user_data = reinterpret_cast<ProxySetUserDataFn>(
-        resolve_symbol("wl_proxy_set_user_data"));
-    g_proxy_get_display = reinterpret_cast<ProxyGetDisplayFn>(
-        resolve_symbol("wl_proxy_get_display"));
+    if (g_resolved.load(std::memory_order_acquire)) return;
+    std::call_once(g_resolve_once, [] {
+        g_marshal_array_flags = reinterpret_cast<MarshalArrayFlagsFn>(
+            resolve_symbol("wl_proxy_marshal_array_flags"));
+        g_proxy_destroy = reinterpret_cast<ProxyDestroyFn>(
+            resolve_symbol("wl_proxy_destroy"));
+        g_proxy_add_listener = reinterpret_cast<ProxyAddListenerFn>(
+            resolve_symbol("wl_proxy_add_listener"));
+        g_proxy_get_version = reinterpret_cast<ProxyGetVersionFn>(
+            resolve_symbol("wl_proxy_get_version"));
+        g_proxy_set_queue = reinterpret_cast<ProxySetQueueFn>(
+            resolve_symbol("wl_proxy_set_queue"));
+        g_proxy_get_queue = reinterpret_cast<ProxyGetQueueFn>(
+            resolve_symbol("wl_proxy_get_queue"));
+        g_proxy_get_user_data = reinterpret_cast<ProxyGetUserDataFn>(
+            resolve_symbol("wl_proxy_get_user_data"));
+        g_proxy_set_user_data = reinterpret_cast<ProxySetUserDataFn>(
+            resolve_symbol("wl_proxy_set_user_data"));
+        g_proxy_get_display = reinterpret_cast<ProxyGetDisplayFn>(
+            resolve_symbol("wl_proxy_get_display"));
 
-    if (!g_marshal_array_flags || !g_proxy_destroy || !g_proxy_add_listener) {
-        std::fprintf(stderr,
-                     "paddeck: cannot resolve libwayland symbols; layer shell "
-                     "is unavailable\n");
-        std::abort();
-    }
-    g_resolved = true;
+        if (!g_marshal_array_flags || !g_proxy_destroy ||
+            !g_proxy_add_listener) {
+            std::fprintf(stderr,
+                         "paddeck: cannot resolve libwayland symbols; layer "
+                         "shell is unavailable\n");
+            std::abort();
+        }
+        g_resolved.store(true, std::memory_order_release);
+    });
 }
 
 struct FakeProxy {
@@ -90,10 +96,15 @@ struct FakeProxy {
 };
 
 std::vector<FakeProxy*> g_fake_proxies;
+// The capture client runs on its own thread and marshals requests on its own
+// connection, so it also runs through these overrides; the list of stand-ins
+// has to be safe to read from both threads.
+std::mutex g_fake_proxies_mutex;
 
 FakeProxy* find_fake(struct wl_proxy* proxy) {
     if (!proxy) return nullptr;
     auto* candidate = reinterpret_cast<FakeProxy*>(proxy);
+    std::lock_guard<std::mutex> lock(g_fake_proxies_mutex);
     for (FakeProxy* fake : g_fake_proxies) {
         if (fake == candidate) return fake;
     }
@@ -136,7 +147,10 @@ struct wl_proxy* create_proxy(struct wl_display* display,
     fake->request = handler;
     fake->destroy = destroy;
     fake->data = data;
-    g_fake_proxies.push_back(fake);
+    {
+        std::lock_guard<std::mutex> lock(g_fake_proxies_mutex);
+        g_fake_proxies.push_back(fake);
+    }
     return reinterpret_cast<struct wl_proxy*>(fake);
 }
 
