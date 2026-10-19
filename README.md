@@ -6,6 +6,7 @@ Umbriel 的 **scratchpad（暂存区）图形管理器**。用 C++20 + GTK4 + `g
 
 > 面向普通用户的使用手册见 **[`docs/manual.html`](docs/manual.html)**（离线 HTML，
 > 直接用浏览器打开即可，无需网络）。本 README 面向开发者与维护者。
+> 版本变更见 [`CHANGELOG.md`](CHANGELOG.md)。
 
 每个 scratchpad 里的窗口以**缩略图网格**呈现（直接抓取窗口画面），而不是文字列表：
 
@@ -194,3 +195,16 @@ meson 会在构建时用 `wayland-scanner` 生成
   `/usr/share` 时需先建立用户配置）。
 - `--dump` / `--add` / `--remove` 会在执行后发送 `config-reload`；
   只读取运行中合成的配置本身，不会修改你的文件。
+
+## 版本与许可
+
+- 当前版本：**0.1.0**（见 [`CHANGELOG.md`](CHANGELOG.md)）。
+- 许可证：[MIT](LICENSE)。所有源文件均带 `SPDX-License-Identifier: MIT` 标识。
+- 源码发布包：
+
+  ```sh
+  meson dist                      # 生成 build/meson-dist/scratchpads-umbriel-<版本>.tar.xz
+  ```
+
+- 运行时要求：Umbriel（wlroots）会话；窗口预览额外需要合成器提供
+  `ext-image-copy-capture-v1` 与 `ext-foreign-toplevel-list-v1`，否则自动降级为文字列表。

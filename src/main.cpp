@@ -15,6 +15,7 @@
 #include "model/config_store.hpp"
 #include "model/scratchpad.hpp"
 #include "model/types.hpp"
+#include "spm_config.hpp"
 #include "ui/overlay_window.hpp"
 #include "umbriel/ipc.hpp"
 
@@ -92,7 +93,7 @@ Options parse_options(int argc, char** argv) {
         } else if (argument == "--help" || argument == "-h") {
             options.show_help = true;
         } else if (argument == "--version" || argument == "-v") {
-            std::printf("scratchpads-umbriel 0.1.0\n");
+            std::printf("scratchpads-umbriel %s\n", SPM_VERSION);
             std::exit(0);
         } else {
             options.argv.push_back(argv[i]);

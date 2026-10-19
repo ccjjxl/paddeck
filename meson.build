@@ -18,6 +18,11 @@ wayland_protocols_dep = dependency('wayland-protocols', version: '>=1.36')
 wayland_scanner = find_program('wayland-scanner')
 wayland_protocols_dir = wayland_protocols_dep.get_variable(pkgconfig: 'pkgdatadir')
 
+# Single source of truth for the version string (also used by --version).
+version_conf = configuration_data()
+version_conf.set_quoted('SPM_VERSION', meson.project_version())
+configure_file(output: 'spm_config.hpp', configuration: version_conf)
+
 # ext-image-copy-capture-v1 lets us grab the pixels of a single toplevel - even
 # one hidden inside a scratchpad. The identifiers it hands out match the window
 # ids Umbriel reports over IPC.
