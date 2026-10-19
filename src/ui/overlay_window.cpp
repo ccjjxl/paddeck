@@ -11,8 +11,8 @@
 #include <gtkmm/button.h>
 #include <gtkmm/eventcontrollerkey.h>
 #include <gtkmm/gestureclick.h>
-#include <gtkmm/menubutton.h>
 #include <gtkmm/popover.h>
+#include <gtkmm/separator.h>
 #include <gtkmm/styleprovider.h>
 #include <pangomm.h>
 
@@ -58,8 +58,7 @@ void clear_box(Gtk::Box& box) {
 }  // namespace
 
 OverlayWindow::OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_layer_shell)
-    : m_ipc(ipc), m_config(config) {
-    build_ui();
+    : m_ipc(ipc), m_config(config) {    build_ui();
 
     m_css = Gtk::CssProvider::create();
     if (auto display = Gdk::Display::get_default()) {
@@ -86,6 +85,8 @@ OverlayWindow::OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_laye
     rebuild();
 }
 
+OverlayWindow::~OverlayWindow() { clear_menus(); }
+
 void OverlayWindow::setup_layer_shell() {
     auto* window = GTK_WINDOW(gobj());
     gtk_layer_init_for_window(window);
@@ -104,7 +105,7 @@ void OverlayWindow::build_ui() {
     set_decorated(false);
     add_css_class("spm-window");
 
-    m_backdrop = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL);
+    m_backdrop = Gtk::make_managed<Gtk::CenterBox>();
     m_backdrop->add_css_class("spm-backdrop");
     set_child(*m_backdrop);
 
@@ -113,7 +114,7 @@ void OverlayWindow::build_ui() {
     m_card->set_halign(Gtk::Align::CENTER);
     m_card->set_valign(Gtk::Align::CENTER);
     m_card->set_size_request(560, -1);
-    m_backdrop->append(*m_card);
+    m_backdrop->set_center_widget(*m_card);
 
     auto* header = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
     auto* title = Gtk::make_managed<Gtk::Label>("Scratchpads");
@@ -122,7 +123,7 @@ void OverlayWindow::build_ui() {
     title->set_hexpand(true);
     header->append(*title);
 
-    m_connection = subtle_label("connecting…");
+    m_connection = subtle_label("○ connecting…");
     m_connection->set_halign(Gtk::Align::END);
     header->append(*m_connection);
 
@@ -160,8 +161,11 @@ void OverlayWindow::build_ui() {
     m_scroll = Gtk::make_managed<Gtk::ScrolledWindow>();
     m_scroll->add_css_class("spm-scroll");
     m_scroll->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
-    m_scroll->set_vexpand(true);
-    m_scroll->set_min_content_height(240);
+    // Hug the content, but never grow past a comfortable maximum.
+    m_scroll->set_propagate_natural_height(true);
+    m_scroll->set_max_content_height(440);
+    m_scroll->set_min_content_height(0);
+    m_scroll->set_vexpand(false);
     m_list = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 8);
     m_list->set_margin_end(6);
     m_scroll->set_child(*m_list);
@@ -263,7 +267,7 @@ void OverlayWindow::on_connection(bool connected) {
     if (m_connection == nullptr) {
         return;
     }
-    m_connection->set_text(connected ? "connected" : "reconnecting…");
+    m_connection->set_text(connected ? "● connected" : "○ reconnecting…");
     m_connection->remove_css_class("spm-subtle");
     m_connection->remove_css_class("spm-ok");
     m_connection->remove_css_class("spm-error");
@@ -320,6 +324,7 @@ void OverlayWindow::rebuild() {
         return;
     }
     m_scratchpads = build_scratchpads(m_config.defs(), m_windows);
+    clear_menus();
     clear_box(*m_list);
 
     bool any = false;
@@ -341,33 +346,67 @@ void OverlayWindow::rebuild() {
     }
 }
 
-Gtk::Widget* OverlayWindow::build_action_menu(const std::string& /*name*/,
-                                              std::vector<Action> actions) {
-    auto* button = Gtk::make_managed<Gtk::MenuButton>();
-    button->set_label("⋮");
-    button->add_css_class("spm-icon");
-    button->set_focus_on_click(false);
+Gtk::Widget* OverlayWindow::build_action_menu(std::vector<MenuEntry> entries) {
+    auto* button = icon_button("⋮", "More actions");
+    button->add_css_class("spm-menu-button");
 
-    auto* popover = Gtk::make_managed<Gtk::Popover>();
+    auto* popover = new Gtk::Popover();  // owned explicitly; see clear_menus()
     popover->set_has_arrow(false);
+    popover->set_autohide(true);
+    popover->set_position(Gtk::PositionType::BOTTOM);
+    popover->set_offset(0, 6);
     popover->add_css_class("spm-menu");
-    auto* box = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 2);
+
+    auto* box = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 1);
+    box->add_css_class("spm-menu-box");
     popover->set_child(*box);
 
-    for (auto& [label, handler] : actions) {
-        auto* item = Gtk::make_managed<Gtk::Button>(label);
-        item->add_css_class("spm-icon");
-        item->set_halign(Gtk::Align::FILL);
+    for (auto& entry : entries) {
+        if (entry.separator_before) {
+            auto* separator = Gtk::make_managed<Gtk::Separator>(Gtk::Orientation::HORIZONTAL);
+            separator->add_css_class("spm-menu-separator");
+            separator->set_margin_top(4);
+            separator->set_margin_bottom(4);
+            box->append(*separator);
+        }
+
+        auto* item = Gtk::make_managed<Gtk::Button>();
+        item->add_css_class("spm-menu-item");
+        if (entry.danger) {
+            item->add_css_class("spm-menu-item-danger");
+        }
         item->set_focus_on_click(false);
-        item->signal_clicked().connect([popover, fn = std::move(handler)] {
+
+        auto* label = Gtk::make_managed<Gtk::Label>(entry.label);
+        label->set_xalign(0.0f);
+        label->set_halign(Gtk::Align::START);
+        item->set_child(*label);
+
+        item->signal_clicked().connect([popover, fn = std::move(entry.activate)] {
             popover->popdown();
             fn();
         });
         box->append(*item);
     }
 
-    button->set_popover(*popover);
+    popover->set_parent(*button);
+    button->signal_clicked().connect([popover] { popover->popup(); });
+    m_menu_popovers.push_back(popover);
     return button;
+}
+
+void OverlayWindow::clear_menus() {
+    // Popovers are parented to their buttons, so they must be unparented before
+    // the buttons are destroyed to avoid finalizing a parent that still has a child.
+    for (auto* popover : m_menu_popovers) {
+        if (popover == nullptr) {
+            continue;
+        }
+        popover->popdown();
+        popover->unparent();
+        delete popover;
+    }
+    m_menu_popovers.clear();
 }
 
 Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp) {
@@ -437,17 +476,19 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp) {
         [this, name] { run("scratchpad-window-show-next:" + name); });
     header->append(*next);
 
-    std::vector<Action> menu;
-    menu.emplace_back("Focus next window", [this, name] { run("scratchpad-focus-next:" + name); });
-    menu.emplace_back("Store focused window here",
-                      [this, name] { run("window-toggle-scratchpad:" + name); });
-    menu.emplace_back("Move focused window here",
-                      [this, name] { run("window-move-to-scratchpad:" + name); });
-    menu.emplace_back("Reveal in configuration", [this, sp] { reveal_source(sp); });
+    std::vector<MenuEntry> menu;
+    menu.push_back(MenuEntry{"Focus next window",
+                             [this, name] { run("scratchpad-focus-next:" + name); }});
+    menu.push_back(MenuEntry{"Store focused window here",
+                             [this, name] { run("window-toggle-scratchpad:" + name); }});
+    menu.push_back(MenuEntry{"Move focused window here",
+                             [this, name] { run("window-move-to-scratchpad:" + name); }});
+    menu.push_back(MenuEntry{"Reveal in configuration", [this, sp] { reveal_source(sp); }});
     if (sp.managed) {
-        menu.emplace_back("Delete scratchpad…", [this, sp] { confirm_delete(sp); });
+        menu.push_back(MenuEntry{"Delete scratchpad…", [this, sp] { confirm_delete(sp); },
+                                 /*danger=*/true, /*separator_before=*/true});
     }
-    header->append(*build_action_menu(sp.name, std::move(menu)));
+    header->append(*build_action_menu(std::move(menu)));
 
     outer->append(*header);
 

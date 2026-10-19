@@ -10,9 +10,12 @@
 
 #include <gtkmm/applicationwindow.h>
 #include <gtkmm/box.h>
+#include <gtkmm/button.h>
+#include <gtkmm/centerbox.h>
 #include <gtkmm/cssprovider.h>
 #include <gtkmm/entry.h>
 #include <gtkmm/label.h>
+#include <gtkmm/popover.h>
 #include <gtkmm/scrolledwindow.h>
 
 #include "model/config_store.hpp"
@@ -25,13 +28,21 @@ namespace spm {
 class OverlayWindow : public Gtk::ApplicationWindow {
 public:
     OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_layer_shell);
-    ~OverlayWindow() override = default;
+    ~OverlayWindow() override;
 
     /// Present the overlay, or hide it when it is already visible.
     void toggle_visible();
 
 private:
     using Action = std::pair<Glib::ustring, std::function<void()>>;
+
+    /// One row of the per-scratchpad "⋮" menu.
+    struct MenuEntry {
+        Glib::ustring label;
+        std::function<void()> activate;
+        bool danger = false;
+        bool separator_before = false;
+    };
 
     void build_ui();
     void setup_layer_shell();
@@ -46,8 +57,8 @@ private:
 
     Gtk::Widget* build_scratchpad_card(const Scratchpad& sp);
     Gtk::Widget* build_window_row(const WindowInfo& w, const Scratchpad& sp);
-    Gtk::Widget* build_action_menu(const std::string& name, std::vector<Action> actions);
-
+    Gtk::Widget* build_action_menu(std::vector<MenuEntry> entries);
+    void clear_menus();
     void run(std::string action);
     void set_status(const Glib::ustring& message, bool error);
 
@@ -77,7 +88,7 @@ private:
 
     Glib::RefPtr<Gtk::CssProvider> m_css;
 
-    Gtk::Box* m_backdrop = nullptr;
+    Gtk::CenterBox* m_backdrop = nullptr;
     Gtk::Box* m_card = nullptr;
     Gtk::Box* m_list = nullptr;
     Gtk::Box* m_prompt = nullptr;
@@ -88,6 +99,7 @@ private:
     Gtk::Label* m_status = nullptr;
     Gtk::Label* m_connection = nullptr;
     Gtk::ScrolledWindow* m_scroll = nullptr;
+    std::vector<Gtk::Popover*> m_menu_popovers;  // owned by us; see clear_menus()
 };
 
 }  // namespace spm

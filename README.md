@@ -6,7 +6,7 @@ Umbriel 的 **scratchpad（暂存区）图形管理器**。用 C++20 + GTK4 + `g
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│  Scratchpads                       connected   ⟳     ✕    │
+│  Scratchpads                       ● connected   ○     ✕    │
 │  显示、隐藏、聚焦并重新整理 Umbriel scratchpad 中的窗口。   │
 │  [ 按标题或 app id 过滤…                                ] │
 │ ┌───────────────────────────────────────────────────────┐ │
@@ -28,7 +28,7 @@ Umbriel 的 **scratchpad（暂存区）图形管理器**。用 C++20 + GTK4 + `g
 - 列出每个 scratchpad：名称、窗口数量、`visible` / `hidden` / `empty` 状态。
 - `Show` / `Hide` → `scratchpad-toggle:<name>`。
 - `◂` / `▸` → `scratchpad-window-show-previous|next:<name>`，一次只显示一个成员。
-- `⋮` 菜单：
+- `⋮` 菜单（浮出式 popover，随主题配色；删除项为危险色并带分隔线）：
   - Focus next window → `scratchpad-focus-next:<name>`
   - Store focused window here → `window-toggle-scratchpad:<name>`
   - Move focused window here → `window-move-to-scratchpad:<name>`

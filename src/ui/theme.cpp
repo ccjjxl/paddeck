@@ -147,9 +147,28 @@ std::string build_css(const Theme& t) {
     css << "scrolledwindow.spm-scroll { background: none; border: none; }\n";
     css << "scrolledwindow.spm-scroll > viewport { background: none; }\n";
 
+    css << "popover.spm-menu { background: none; border: none; box-shadow: none; }\n";
     css << "popover.spm-menu > contents { background-color: " << css_color(t.background)
-        << "; border: 1px solid " << css_color(t.border_unfocused, 1.6) << ";"
-        << " border-radius: " << px(inner) << "; padding: 4px; }\n";
+        << "; border: 1px solid " << css_color(t.border_unfocused, 1.7) << ";"
+        << " border-radius: " << px(inner) << "; padding: 6px;"
+        << " box-shadow: 0 12px 32px " << css_color(t.shadow) << "; }\n";
+    css << "popover.spm-menu > arrow { background: none; border: none; box-shadow: none; }\n";
+    css << ".spm-menu-box { min-width: 214px; }\n";
+    css << "button.spm-menu-item { background: none; border: none; box-shadow: none;"
+        << " color: " << css_color(t.text_primary) << "; padding: 6px 10px; min-height: 26px;"
+        << " border-radius: 6px; font-size: 0.92em; }\n";
+    css << "button.spm-menu-item:hover { background-color: " << css_color(t.text_primary, 0.10)
+        << "; }\n";
+    css << "button.spm-menu-item:active { background-color: " << css_color(t.text_primary, 0.16)
+        << "; }\n";
+    css << "button.spm-menu-item-danger { color: " << css_color(t.error) << "; }\n";
+    css << "button.spm-menu-item-danger:hover { background-color: " << css_color(t.error, 0.16)
+        << "; }\n";
+    css << "button.spm-menu-item-danger:active { background-color: " << css_color(t.error, 0.24)
+        << "; }\n";
+    css << "separator.spm-menu-separator { background-color: " << css_color(t.text_primary, 0.12)
+        << "; min-height: 1px; }\n";
+    css << "button.spm-menu-button { font-weight: bold; padding: 2px 7px; }\n";
 
     return css.str();
 }
