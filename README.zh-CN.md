@@ -258,5 +258,8 @@ meson 会在构建时用 `wayland-scanner` 生成
   meson dist                      # 生成 build/meson-dist/paddeck-<版本>.tar.xz
   ```
 
+- 发布由 GitHub Actions 完成：推送 `v*` 标签会构建源码包与 x86_64 预编译包，
+  并自动发布到 GitHub Release；每次推送 `main` 与每个 PR 也会执行构建检查。
+
 - 运行时要求：Umbriel（wlroots）会话；窗口预览额外需要合成器提供
   `ext-image-copy-capture-v1` 与 `ext-foreign-toplevel-list-v1`，否则只显示首字母。

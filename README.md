@@ -303,6 +303,10 @@ source hard-codes it.
   meson dist                      # writes build/meson-dist/paddeck-<version>.tar.xz
   ```
 
+- Releases are built by GitHub Actions: pushing a `v*` tag produces the source
+  tarball plus a prebuilt x86_64 binary archive and publishes both to the
+  GitHub release. CI also builds every push to `main` and every pull request.
+
 - Runtime requirement: an Umbriel (wlroots) session. Window previews
   additionally need the compositor to provide `ext-image-copy-capture-v1` and
   `ext-foreign-toplevel-list-v1`; otherwise tiles show initials.
