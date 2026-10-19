@@ -55,9 +55,6 @@ void from_json(const nlohmann::json& j, Theme& t);
 struct ScratchpadDef {
     std::string name;
     std::optional<std::string> spawn_when_empty;
-    std::string file;      // file the entry was declared in
-    int line = -1;         // 1-based line, or -1 when unknown
-    bool managed = false;  // declared in the manager-owned include file
 };
 
 /// Replace bytes that are not valid UTF-8 so the value is safe for GTK.

@@ -6,11 +6,6 @@
 
 namespace spm {
 
-bool Scratchpad::any_visible() const {
-    return std::any_of(windows.begin(), windows.end(),
-                       [](const WindowInfo& w) { return w.visible; });
-}
-
 int Scratchpad::visible_count() const {
     return static_cast<int>(std::count_if(
         windows.begin(), windows.end(), [](const WindowInfo& w) { return w.visible; }));
@@ -43,19 +38,14 @@ std::vector<Scratchpad> build_scratchpads(const std::vector<ScratchpadDef>& defs
                 continue;
             }
             Scratchpad& sp = ensure(def.name);
-            sp.defined = true;
-            sp.sources.push_back(def);
             if (def.spawn_when_empty) {
                 sp.spawn_when_empty = def.spawn_when_empty;
-            }
-            if (def.managed) {
-                sp.managed = true;
             }
         }
     }
 
     // Attach stored windows; create entries for names that are not configured so
-    // a stale scratchpad is still visible and manageable.
+    // a stale scratchpad is still visible.
     for (const auto& w : windows) {
         if (w.scratchpad.empty()) {
             continue;

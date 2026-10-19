@@ -13,13 +13,9 @@ namespace spm {
 struct Scratchpad {
     std::string name;
     std::optional<std::string> spawn_when_empty;
-    std::vector<ScratchpadDef> sources;  // where the name is declared
-    bool implicit = false;               // the implicit `default` scratchpad
-    bool managed = false;                // fully declared in the managed file
-    bool defined = false;                // declared in some config file
+    bool implicit = false;  // the implicit `default` scratchpad
     std::vector<WindowInfo> windows;
 
-    bool any_visible() const;
     int visible_count() const;
 };
 

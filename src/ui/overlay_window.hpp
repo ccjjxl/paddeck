@@ -1,25 +1,28 @@
 // SPDX-License-Identifier: MIT
-// The gtk4-layer-shell overlay that manages Umbriel scratchpads.
+// The gtk4-layer-shell overlay: a keyboard-driven scratchpad switcher.
+//
+// The overlay lists every scratchpad with a strip of live window previews. The
+// selection is the whole interface: whatever is selected is what the keybindings
+// act on.
+//
+//   j / k / ↑ / ↓ / Tab   move the selection
+//   space                 toggle the selected scratchpad (show / hide)
+//   h / l / ← / →         show only the previous / next window of the selection
+//   enter                 focus a window of the selection, then dismiss
+//   1 .. 9                jump straight to the n-th scratchpad and toggle it
+//   esc                   dismiss the overlay
 #pragma once
 
-#include <chrono>
-#include <functional>
 #include <map>
-#include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <gtkmm/applicationwindow.h>
 #include <gtkmm/box.h>
-#include <gtkmm/button.h>
 #include <gtkmm/centerbox.h>
 #include <gtkmm/cssprovider.h>
-#include <gtkmm/entry.h>
-#include <gtkmm/grid.h>
 #include <gtkmm/label.h>
 #include <gtkmm/picture.h>
-#include <gtkmm/popover.h>
 #include <gtkmm/scrolledwindow.h>
 
 #include "model/config_store.hpp"
@@ -39,22 +42,11 @@ public:
     void toggle_visible();
 
 private:
-    using Action = std::pair<Glib::ustring, std::function<void()>>;
-
-    /// One row of the per-scratchpad "⋮" menu.
-    struct MenuEntry {
-        Glib::ustring label;
-        std::function<void()> activate;
-        bool danger = false;
-        bool separator_before = false;
-    };
-
     /// The live widgets of one window preview tile, so an asynchronously
     /// captured image can be dropped into the right place.
     struct ThumbSlot {
         Gtk::Picture* picture = nullptr;
         Gtk::Widget* placeholder = nullptr;
-        Gtk::Label* hint = nullptr;
     };
 
     void build_ui();
@@ -69,30 +61,23 @@ private:
     void reload_config();
     void rebuild();
 
-    void update_capture_targets();
-    void toggle_previews();
-    void refresh_previews();
+    bool handle_key(guint keyval);
+    void select_index(int index);
+    void move_selection(int delta);
+    void apply_selection();
+    void toggle_selected();
+    void cycle_member_of_selection(int delta);
+    void focus_selected();
+    void select_and_toggle(int index);
 
-    Gtk::Widget* build_scratchpad_card(const Scratchpad& sp);
-    Gtk::Widget* build_window_tile(const WindowInfo& w, const Scratchpad& sp);
-    Gtk::Widget* build_action_menu(std::vector<MenuEntry> entries);
-    void clear_menus();
+    const Scratchpad* selected() const;
+
+    void update_capture_targets();
     void run(std::string action);
     void set_status(const Glib::ustring& message, bool error);
 
-    void hide_prompt();
-    void clear_prompt_body();
-    void set_prompt_actions(std::vector<Action> actions);
-    void show_new_scratchpad_form();
-    void confirm_delete(const Scratchpad& sp);
-    void commit_new_scratchpad(const std::string& name, const std::string& spawn);
-    void perform_add(const std::string& name, const std::string& spawn);
-    void after_config_change(const Glib::ustring& message);
-    void reveal_source(const Scratchpad& sp);
-    static void reveal_file(const std::string& path);
-
-    bool matches_filter(const WindowInfo& w) const;
-    bool scratchpad_has_matches(const Scratchpad& sp) const;
+    Gtk::Widget* build_scratchpad_card(const Scratchpad& sp, int index);
+    Gtk::Widget* build_window_tile(const WindowInfo& w);
 
     UmbrielIpc& m_ipc;
     ConfigStore& m_config;
@@ -101,32 +86,26 @@ private:
     std::vector<WindowInfo> m_windows;
     std::vector<Scratchpad> m_scratchpads;
     Theme m_theme;
-    std::set<std::string> m_collapsed;
-    Glib::ustring m_filter;
     bool m_connected = false;
-    bool m_previews = true;
+    /// Index into m_scratchpads; the scratchpad the keys act on.
+    int m_selected = 0;
 
     /// Last captured image per window id; reused when the list is rebuilt so
     /// tiles do not flash empty.
     std::map<std::string, Glib::RefPtr<Gdk::Pixbuf>> m_thumb_cache;
     /// Tiles of the current rebuild, keyed by window id.
     std::map<std::string, ThumbSlot> m_thumb_slots;
+    /// One card per scratchpad, in list order.
+    std::vector<Gtk::Widget*> m_rows;
 
     Glib::RefPtr<Gtk::CssProvider> m_css;
 
     Gtk::CenterBox* m_backdrop = nullptr;
     Gtk::Box* m_card = nullptr;
     Gtk::Box* m_list = nullptr;
-    Gtk::Box* m_prompt = nullptr;
-    Gtk::Label* m_prompt_label = nullptr;
-    Gtk::Box* m_prompt_body = nullptr;
-    Gtk::Box* m_prompt_actions = nullptr;
-    Gtk::Entry* m_search = nullptr;
     Gtk::Label* m_status = nullptr;
     Gtk::Label* m_connection = nullptr;
     Gtk::ScrolledWindow* m_scroll = nullptr;
-    Gtk::Button* m_preview_toggle = nullptr;
-    std::vector<Gtk::Popover*> m_menu_popovers;  // owned by us; see clear_menus()
 };
 
 }  // namespace spm

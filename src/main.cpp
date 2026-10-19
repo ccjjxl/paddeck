@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 //
-// scratchpads-umbriel — a gtk4-layer-shell overlay for managing Umbriel
-// scratchpads.
+// scratchpads-umbriel — a gtk4-layer-shell overlay for switching between
+// Umbriel scratchpads.
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,11 +25,8 @@ struct Options {
     std::string socket_path;  // --socket
     bool layer_shell = true;
     bool show_help = false;
-    bool dump = false;  // --dump
-    std::string add_name;      // --add <name>
-    std::string remove_name;   // --remove <name>
-    std::string spawn_command;  // --spawn <cmd>
-    int quit_after_ms = 0;      // --quit-after <ms>, for smoke tests
+    bool dump = false;      // --dump
+    int quit_after_ms = 0;  // --quit-after <ms>, for smoke tests
     int argc = 0;
     std::vector<char*> argv;
 };
@@ -38,16 +34,14 @@ struct Options {
 void print_help(const char* program) {
     std::printf(
         "Usage: %s [options]\n\n"
-        "A graphical manager for Umbriel scratchpads. Launch it from a keybind to\n"
-        "toggle a layer-shell overlay listing every scratchpad and its windows.\n\n"
+        "A keyboard-driven layer-shell overlay for switching Umbriel scratchpads.\n"
+        "Launch it from a keybind: the overlay lists every scratchpad, `j`/`k` moves\n"
+        "the selection, `space` toggles the selected one and `esc` dismisses.\n\n"
         "Options:\n"
         "  -c, --config <path>   Use this Umbriel configuration instead of the search path\n"
         "      --socket <path>   Override the Umbriel IPC socket (default: $UMBRIEL_SOCKET)\n"
         "      --window          Use a normal window instead of a layer-shell surface\n"
         "      --dump            Print scratchpads and their windows as text, then exit\n"
-        "      --add <name>      Create a scratchpad in the managed include file\n"
-        "      --spawn <cmd>     Command for --add to run when toggled while empty\n"
-        "      --remove <name>   Delete a scratchpad from the managed include file\n"
         "  -h, --help            Show this help\n"
         "  -v, --version         Show the version\n",
         program);
@@ -74,18 +68,6 @@ Options parse_options(int argc, char** argv) {
             options.layer_shell = false;
         } else if (argument == "--dump") {
             options.dump = true;
-        } else if (argument == "--add") {
-            if (i + 1 < argc) {
-                options.add_name = argv[++i];
-            }
-        } else if (argument == "--remove") {
-            if (i + 1 < argc) {
-                options.remove_name = argv[++i];
-            }
-        } else if (argument == "--spawn") {
-            if (i + 1 < argc) {
-                options.spawn_command = argv[++i];
-            }
         } else if (argument == "--quit-after") {
             if (i + 1 < argc) {
                 options.quit_after_ms = std::atoi(argv[++i]);
@@ -103,10 +85,6 @@ Options parse_options(int argc, char** argv) {
     return options;
 }
 
-}  // namespace
-
-namespace {
-
 void print_scratchpads(const spm::ConfigStore& config) {
     std::string error;
     nlohmann::json reply;
@@ -118,16 +96,13 @@ void print_scratchpads(const spm::ConfigStore& config) {
     const auto windows = spm::parse_windows(reply);
     const auto scratchpads = spm::build_scratchpads(config.defs(), windows);
 
-    std::printf("config:  %s\n", config.primary_config().empty() ? "(none)"
+    std::printf("config: %s\n", config.primary_config().empty() ? "(none)"
                                                                 : config.primary_config().c_str());
-    std::printf("managed: %s%s\n", config.managed_path().c_str(),
-                config.managed_include_present() ? "  (included)" : "  (not included yet)");
-    std::printf("loaded:  %zu file(s)\n", config.loaded_files().size());
+    std::printf("loaded: %zu file(s)\n", config.loaded_files().size());
 
     for (const auto& sp : scratchpads) {
-        std::printf("\n[%s]%s%s  %zu window(s), %d visible\n", sp.name.c_str(),
-                    sp.implicit ? " (implicit)" : "", sp.managed ? " (managed)" : "",
-                    sp.windows.size(), sp.visible_count());
+        std::printf("\n[%s]%s  %zu window(s), %d visible\n", sp.name.c_str(),
+                    sp.implicit ? " (implicit)" : "", sp.windows.size(), sp.visible_count());
         if (sp.spawn_when_empty) {
             std::printf("    spawn_when_empty: %s\n", sp.spawn_when_empty->c_str());
         }
@@ -151,51 +126,14 @@ int main(int argc, char** argv) {
         ::setenv("UMBRIEL_SOCKET", options.socket_path.c_str(), 1);
     }
 
-    if (options.dump || !options.add_name.empty() || !options.remove_name.empty()) {
+    if (options.dump) {
         spm::ConfigStore config(options.config_path);
         std::string error;
         config.load(&error);
         if (!error.empty()) {
             std::fprintf(stderr, "scratchpads-umbriel: %s\n", error.c_str());
         }
-
-        if (!options.add_name.empty()) {
-            std::optional<std::string> spawn;
-            if (!options.spawn_command.empty()) {
-                spawn = options.spawn_command;
-            }
-            if (!config.add_scratchpad(options.add_name, spawn, &error)) {
-                std::fprintf(stderr, "scratchpads-umbriel: %s\n", error.c_str());
-                return 1;
-            }
-            std::printf("created scratchpad \"%s\" in %s\n", options.add_name.c_str(),
-                        config.managed_path().c_str());
-            config.load(&error);
-            config.trigger_reload(&error);
-        }
-
-        if (!options.remove_name.empty()) {
-            if (!config.remove_scratchpad(options.remove_name, &error)) {
-                std::fprintf(stderr, "scratchpads-umbriel: %s\n", error.c_str());
-                return 1;
-            }
-            std::printf("removed scratchpad \"%s\"\n", options.remove_name.c_str());
-            config.load(&error);
-            config.trigger_reload(&error);
-        }
-
-        if (options.dump) {
-            // A reload must be idempotent; check it in-process.
-            const std::size_t before = config.defs().size();
-            config.load(&error);
-            if (config.defs().size() != before) {
-                std::fprintf(stderr,
-                             "scratchpads-umbriel: warning: reload changed the definition "
-                             "count (%zu -> %zu)\n",
-                             before, config.defs().size());
-            }
-            print_scratchpads(config);
-        }
+        print_scratchpads(config);
         return 0;
     }
 

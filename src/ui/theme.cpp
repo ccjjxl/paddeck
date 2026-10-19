@@ -93,38 +93,20 @@ std::string build_css(const Theme& t) {
         << "; font-weight: bold; font-size: 1.2em; }\n";
     css << ".spm-subtle { color: " << css_color(t.text_muted) << "; font-size: 0.86em; }\n";
     css << ".spm-mono { font-family: monospace; font-size: 0.82em; }\n";
+    css << ".spm-hint { color: " << css_color(t.text_muted, 0.8)
+        << "; font-size: 0.78em; font-family: monospace; }\n";
 
-    css << "button.spm-icon { background: none; border: none; box-shadow: none;"
-        << " color: " << css_color(t.text_muted) << "; padding: 2px 8px; min-height: 22px;"
-        << " border-radius: 6px; }\n";
-    css << "button.spm-icon:hover { background-color: " << css_color(t.text_primary, 0.12)
-        << "; color: " << css_color(t.text_primary) << "; }\n";
-    css << "button.spm-icon:active { background-color: " << css_color(t.text_primary, 0.20)
-        << "; }\n";
-
-    css << "button.spm-toggle { color: " << css_color(t.text_muted, 0.5) << "; }\n";
-    css << "button.spm-toggle-on { color: " << css_color(t.accent_secondary) << "; }\n";
-
-    css << "button.spm-primary { background: none; border: 1px solid "
-        << css_color(t.accent_primary, 0.7) << "; box-shadow: none;"
-        << " color: " << css_color(t.accent_primary) << "; padding: 1px 10px;"
-        << " min-height: 22px; border-radius: 6px; font-size: 0.86em; }\n";
-    css << "button.spm-primary:hover { background-color: " << css_color(t.accent_primary, 0.18)
-        << "; }\n";
-    css << "button.spm-primary:active { background-color: " << css_color(t.accent_primary, 0.30)
-        << "; }\n";
-
-    css << "entry.spm-search { background-color: " << css_color(t.text_primary, 0.06)
-        << "; color: " << css_color(t.text_primary) << "; border: 1px solid "
-        << css_color(t.border_unfocused, 1.6) << "; border-radius: " << px(inner) << ";"
-        << " padding: 4px 8px; }\n";
-    css << "entry.spm-search:focus { border-color: " << css_color(t.accent_primary) << "; }\n";
-
+    // The selected card is the whole interface: everything the keys do acts on
+    // it, so it gets the accent border and a slightly brighter surface.
     css << ".spm-sp { background-color: " << css_color(t.text_primary, 0.045)
         << "; border: 1px solid " << css_color(t.border_unfocused, 1.4) << ";"
         << " border-radius: " << px(inner) << "; padding: 10px; }\n";
+    css << ".spm-sp:focus, .spm-sp:focus-visible { outline: none; }\n";
+    css << ".spm-sp-selected { background-color: " << css_color(t.text_primary, 0.075)
+        << "; border-color: " << css_color(t.accent_primary) << "; }\n";
     css << ".spm-sp-name { color: " << css_color(t.text_primary)
         << "; font-weight: bold; font-size: 1.0em; }\n";
+    css << ".spm-sp-selected .spm-sp-name { color: " << css_color(t.accent_primary) << "; }\n";
 
     css << ".spm-badge { border-radius: 999px; padding: 0px 8px; font-size: 0.76em;"
         << " font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.45); }\n";
@@ -146,21 +128,11 @@ std::string build_css(const Theme& t) {
         << px(inner) << "; }\n";
     css << ".spm-tile-monogram { color: " << css_color(t.text_primary, 0.30)
         << "; font-weight: bold; font-size: 2.6em; }\n";
-    css << ".spm-tile-hint { color: " << css_color(t.text_muted, 0.85)
-        << "; font-size: 0.74em; }\n";
     css << ".spm-tile-bar { background-color: " << css_color(t.background, 0.94)
         << "; padding: 5px 8px; border-bottom-left-radius: " << px(inner)
         << "; border-bottom-right-radius: " << px(inner) << "; }\n";
-    css << ".spm-tile-compact .spm-tile-bar { border-radius: " << px(inner) << "; }\n";
-    css << ".spm-tile-title { color: " << css_color(t.text_primary) << "; font-size: 0.88em; }\n";
+    css << ".spm-tile-title { color: " << css_color(t.text_primary) << "; font-size: 0.86em; }\n";
     css << ".spm-tile-meta { color: " << css_color(t.text_muted) << "; font-size: 0.72em; }\n";
-    css << "button.spm-tile-action { background: none; border: none; box-shadow: none;"
-        << " color: " << css_color(t.text_muted) << "; padding: 1px 6px; min-height: 20px;"
-        << " border-radius: 5px; font-size: 0.9em; }\n";
-    css << "button.spm-tile-action:hover { background-color: " << css_color(t.text_primary, 0.14)
-        << "; color: " << css_color(t.text_primary) << "; }\n";
-    css << "button.spm-tile-close:hover { background-color: " << css_color(t.error, 0.20)
-        << "; color: " << css_color(t.error) << "; }\n";
 
     css << ".spm-error { color: " << css_color(t.error) << "; }\n";
     css << ".spm-ok { color: " << css_color(t.accent_secondary) << "; }\n";
@@ -170,29 +142,6 @@ std::string build_css(const Theme& t) {
 
     css << "scrolledwindow.spm-scroll { background: none; border: none; }\n";
     css << "scrolledwindow.spm-scroll > viewport { background: none; }\n";
-
-    css << "popover.spm-menu { background: none; border: none; box-shadow: none; }\n";
-    css << "popover.spm-menu > contents { background-color: " << css_color(t.background)
-        << "; border: 1px solid " << css_color(t.border_unfocused, 1.7) << ";"
-        << " border-radius: " << px(inner) << "; padding: 6px;"
-        << " box-shadow: 0 12px 32px " << css_color(t.shadow) << "; }\n";
-    css << "popover.spm-menu > arrow { background: none; border: none; box-shadow: none; }\n";
-    css << ".spm-menu-box { min-width: 214px; }\n";
-    css << "button.spm-menu-item { background: none; border: none; box-shadow: none;"
-        << " color: " << css_color(t.text_primary) << "; padding: 6px 10px; min-height: 26px;"
-        << " border-radius: 6px; font-size: 0.92em; }\n";
-    css << "button.spm-menu-item:hover { background-color: " << css_color(t.text_primary, 0.10)
-        << "; }\n";
-    css << "button.spm-menu-item:active { background-color: " << css_color(t.text_primary, 0.16)
-        << "; }\n";
-    css << "button.spm-menu-item-danger { color: " << css_color(t.error) << "; }\n";
-    css << "button.spm-menu-item-danger:hover { background-color: " << css_color(t.error, 0.16)
-        << "; }\n";
-    css << "button.spm-menu-item-danger:active { background-color: " << css_color(t.error, 0.24)
-        << "; }\n";
-    css << "separator.spm-menu-separator { background-color: " << css_color(t.text_primary, 0.12)
-        << "; min-height: 1px; }\n";
-    css << "button.spm-menu-button { font-weight: bold; padding: 2px 7px; }\n";
 
     return css.str();
 }

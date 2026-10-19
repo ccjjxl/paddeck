@@ -8,14 +8,10 @@
 #include <gtk4-layer-shell/gtk4-layer-shell.h>
 
 #include <gdkmm/display.h>
-#include <giomm/appinfo.h>
-#include <gtkmm/button.h>
 #include <gtkmm/eventcontrollerkey.h>
 #include <gtkmm/gestureclick.h>
 #include <gtkmm/grid.h>
 #include <gtkmm/overlay.h>
-#include <gtkmm/popover.h>
-#include <gtkmm/separator.h>
 #include <gtkmm/styleprovider.h>
 #include <pangomm.h>
 
@@ -25,21 +21,18 @@ namespace spm {
 
 namespace {
 
-Gtk::Button* icon_button(const Glib::ustring& label, const Glib::ustring& tooltip) {
-    auto* button = Gtk::make_managed<Gtk::Button>(label);
-    button->add_css_class("spm-icon");
-    button->set_tooltip_text(tooltip);
-    button->set_focus_on_click(false);
-    return button;
-}
+/// Preview tiles per row. Fixed so every scratchpad keeps the same layout, and
+/// every tile the same size, whatever the window count.
+constexpr int kColumns = 3;
 
-Gtk::Button* primary_button(const Glib::ustring& label, const Glib::ustring& tooltip) {
-    auto* button = Gtk::make_managed<Gtk::Button>(label);
-    button->add_css_class("spm-primary");
-    button->set_tooltip_text(tooltip);
-    button->set_focus_on_click(false);
-    return button;
-}
+/// Must match the canvas CaptureClient scales thumbnails onto.
+constexpr int kTileWidth = 220;
+constexpr int kTileHeight = 124;
+
+/// The always-visible key legend; the overlay is keyboard-only, so the
+/// bindings have to be discoverable without a manual.
+constexpr const char* kHint =
+    "j/k select · space toggle · ←/→ member · enter focus · 1-9 jump · esc close";
 
 Gtk::Label* subtle_label(const Glib::ustring& text) {
     auto* label = Gtk::make_managed<Gtk::Label>(text);
@@ -124,6 +117,9 @@ OverlayWindow::OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_laye
     // still works, it just stays textual.
     m_capture.set_frame_callback(sigc::mem_fun(*this, &OverlayWindow::on_thumbnail));
     m_capture.start();
+    if (!m_capture.available()) {
+        set_status("Window previews are unavailable on this compositor.", true);
+    }
 
     property_visible().signal_changed().connect([this] {
         if (get_visible()) {
@@ -141,7 +137,6 @@ OverlayWindow::OverlayWindow(UmbrielIpc& ipc, ConfigStore& config, bool use_laye
 
 OverlayWindow::~OverlayWindow() {
     m_capture.stop();
-    clear_menus();
 }
 
 void OverlayWindow::setup_layer_shell() {
@@ -183,103 +178,49 @@ void OverlayWindow::build_ui() {
     m_connection = subtle_label("○ connecting…");
     m_connection->set_halign(Gtk::Align::END);
     header->append(*m_connection);
-
-    m_preview_toggle = icon_button("▦", "Toggle window previews");
-    m_preview_toggle->add_css_class("spm-toggle");
-    m_preview_toggle->add_css_class("spm-toggle-on");
-    m_preview_toggle->signal_clicked().connect([this] { toggle_previews(); });
-    header->append(*m_preview_toggle);
-
-    auto* refresh = icon_button("⟳", "Reload configuration and re-capture previews");
-    refresh->signal_clicked().connect([this] { refresh_previews(); });
-    header->append(*refresh);
-
-    auto* close = icon_button("✕", "Close (Esc)");
-    close->signal_clicked().connect([this] { hide(); });
-    header->append(*close);
-
     m_card->append(*header);
-
-    auto* subtitle = Gtk::make_managed<Gtk::Label>(
-        "Show, hide, focus and rearrange windows stored in Umbriel scratchpads.");
-    subtitle->add_css_class("spm-subtle");
-    subtitle->set_xalign(0.0f);
-    subtitle->set_wrap(true);
-    m_card->append(*subtitle);
-
-    m_search = Gtk::make_managed<Gtk::Entry>();
-    m_search->add_css_class("spm-search");
-    m_search->set_placeholder_text("Filter windows by title or app id…");
-    m_search->set_hexpand(true);
-    m_search->signal_changed().connect([this] {
-        m_filter = m_search->get_text().lowercase();
-        rebuild();
-    });
-    m_card->append(*m_search);
 
     m_scroll = Gtk::make_managed<Gtk::ScrolledWindow>();
     m_scroll->add_css_class("spm-scroll");
     m_scroll->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
     // Hug the content, but never grow past a comfortable maximum.
     m_scroll->set_propagate_natural_height(true);
-    m_scroll->set_max_content_height(600);
+    m_scroll->set_max_content_height(640);
     m_scroll->set_min_content_height(0);
     m_scroll->set_vexpand(false);
-    m_list = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 10);
+    m_list = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 8);
     m_list->set_margin_end(6);
     m_scroll->set_child(*m_list);
     m_card->append(*m_scroll);
 
-    m_prompt = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 6);
-    m_prompt->add_css_class("spm-sp");
-    m_prompt->set_visible(false);
-    m_prompt_label = Gtk::make_managed<Gtk::Label>();
-    m_prompt_label->set_xalign(0.0f);
-    m_prompt_label->set_wrap(true);
-    m_prompt->append(*m_prompt_label);
-    m_prompt_body = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 4);
-    m_prompt->append(*m_prompt_body);
-    m_prompt_actions = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 6);
-    m_prompt->append(*m_prompt_actions);
-    m_card->append(*m_prompt);
+    // Grabbing focus on a card is what scrolls it into view, so the selection
+    // can be moved with the list scrolled anywhere. Re-apply once the list is
+    // mapped, when the first grab actually works.
+    m_list->signal_map().connect([this] { apply_selection(); });
 
     auto* footer = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
-    auto* create = primary_button("＋ New scratchpad", "Create a new named scratchpad");
-    create->signal_clicked().connect([this] { show_new_scratchpad_form(); });
-    footer->append(*create);
+    auto* hint = subtle_label(kHint);
+    hint->add_css_class("spm-hint");
+    hint->set_hexpand(true);
+    hint->set_ellipsize(Pango::EllipsizeMode::END);
+    hint->set_single_line_mode(true);
+    footer->append(*hint);
 
-    auto* reload = icon_button("Reload config", "Apply configuration changes now");
-    reload->signal_clicked().connect([this] {
-        after_config_change("Reloaded the Umbriel configuration.");
-    });
-    footer->append(*reload);
-
-    auto* reveal = icon_button("Open config", "Open the main configuration in your editor");
-    reveal->signal_clicked().connect(
-        [this] { reveal_file(m_config.primary_config()); });
-    footer->append(*reveal);
-
-    m_status = Gtk::make_managed<Gtk::Label>();
-    m_status->add_css_class("spm-subtle");
-    m_status->set_hexpand(true);
+    m_status = subtle_label("");
     m_status->set_halign(Gtk::Align::END);
     m_status->set_ellipsize(Pango::EllipsizeMode::END);
     m_status->set_single_line_mode(true);
+    m_status->set_max_width_chars(42);
     footer->append(*m_status);
     m_card->append(*footer);
 
+    // Keys are handled in the capture phase so the list never steals them for
+    // its own focus navigation.
     auto key = Gtk::EventControllerKey::create();
+    key->set_propagation_phase(Gtk::PropagationPhase::CAPTURE);
     key->signal_key_pressed().connect(
         [this](guint keyval, guint /*keycode*/, Gdk::ModifierType /*state*/) {
-            if (keyval == GDK_KEY_Escape) {
-                if (m_prompt->get_visible()) {
-                    hide_prompt();
-                } else {
-                    hide();
-                }
-                return true;
-            }
-            return false;
+            return handle_key(keyval);
         },
         false);
     add_controller(key);
@@ -304,9 +245,7 @@ void OverlayWindow::toggle_visible() {
     reload_config();
     rebuild();
     present();
-    if (m_search != nullptr) {
-        m_search->grab_focus();
-    }
+    apply_selection();
 }
 
 void OverlayWindow::apply_theme(const Theme& theme) {
@@ -334,9 +273,9 @@ void OverlayWindow::on_connection(bool connected) {
 }
 
 void OverlayWindow::on_action_result(std::string action, bool ok, std::string error) {
-    if (ok) {
-        set_status("✓ " + action, false);
-    } else {
+    // Success is already visible in the badges and previews; only failures need
+    // to be spelled out.
+    if (!ok) {
         set_status(error.empty() ? ("Failed: " + action) : error, true);
     }
 }
@@ -363,19 +302,11 @@ void OverlayWindow::run(std::string action) {
     m_ipc.send_action(std::move(action));
 }
 
-bool OverlayWindow::matches_filter(const WindowInfo& w) const {
-    if (m_filter.empty()) {
-        return true;
+const Scratchpad* OverlayWindow::selected() const {
+    if (m_selected < 0 || m_selected >= static_cast<int>(m_scratchpads.size())) {
+        return nullptr;
     }
-    if (Glib::ustring(w.title).lowercase().find(m_filter) != Glib::ustring::npos) {
-        return true;
-    }
-    return Glib::ustring(w.app_id).lowercase().find(m_filter) != Glib::ustring::npos;
-}
-
-bool OverlayWindow::scratchpad_has_matches(const Scratchpad& sp) const {
-    return std::any_of(sp.windows.begin(), sp.windows.end(),
-                       [this](const WindowInfo& w) { return matches_filter(w); });
+    return &m_scratchpads[static_cast<std::size_t>(m_selected)];
 }
 
 void OverlayWindow::rebuild() {
@@ -385,7 +316,7 @@ void OverlayWindow::rebuild() {
     m_scratchpads = build_scratchpads(m_config.defs(), m_windows);
     // Slots point into the widget tree that is about to be torn down.
     m_thumb_slots.clear();
-    clear_menus();
+    m_rows.clear();
     clear_box(*m_list);
 
     // Drop cached previews of windows that no longer exist.
@@ -396,29 +327,174 @@ void OverlayWindow::rebuild() {
         it = alive ? std::next(it) : m_thumb_cache.erase(it);
     }
 
-    bool any = false;
-    for (const auto& sp : m_scratchpads) {
-        if (!m_filter.empty() && !scratchpad_has_matches(sp)) {
-            continue;
-        }
-        m_list->append(*build_scratchpad_card(sp));
-        any = true;
+    for (std::size_t i = 0; i < m_scratchpads.size(); ++i) {
+        auto* row = build_scratchpad_card(m_scratchpads[i], static_cast<int>(i));
+        m_rows.push_back(row);
+        m_list->append(*row);
     }
 
-    if (!any) {
-        auto* empty = Gtk::make_managed<Gtk::Label>(
-            m_filter.empty() ? "No scratchpads are configured."
-                             : "No windows match the filter.");
+    if (m_scratchpads.empty()) {
+        auto* empty = Gtk::make_managed<Gtk::Label>("No scratchpads are configured.");
         empty->add_css_class("spm-empty");
         empty->set_xalign(0.0f);
         m_list->append(*empty);
     }
 
+    if (m_selected >= static_cast<int>(m_scratchpads.size())) {
+        m_selected = m_scratchpads.empty() ? 0 : static_cast<int>(m_scratchpads.size()) - 1;
+    }
+    apply_selection();
     update_capture_targets();
 }
 
+void OverlayWindow::apply_selection() {
+    for (std::size_t i = 0; i < m_rows.size(); ++i) {
+        Gtk::Widget* row = m_rows[i];
+        if (row == nullptr) {
+            continue;
+        }
+        if (static_cast<int>(i) == m_selected) {
+            row->add_css_class("spm-sp-selected");
+            // Focus is what makes the scrolled window keep the selection visible.
+            row->grab_focus();
+        } else {
+            row->remove_css_class("spm-sp-selected");
+        }
+    }
+}
+
+void OverlayWindow::select_index(int index) {
+    if (m_scratchpads.empty()) {
+        return;
+    }
+    const int last = static_cast<int>(m_scratchpads.size()) - 1;
+    m_selected = std::clamp(index, 0, last);
+    apply_selection();
+}
+
+void OverlayWindow::move_selection(int delta) {
+    const int count = static_cast<int>(m_scratchpads.size());
+    if (count == 0) {
+        return;
+    }
+    int next = (m_selected + delta) % count;
+    if (next < 0) {
+        next += count;
+    }
+    select_index(next);
+}
+
+void OverlayWindow::toggle_selected() {
+    const Scratchpad* sp = selected();
+    if (sp == nullptr) {
+        return;
+    }
+    if (sp->windows.empty() && !sp->spawn_when_empty) {
+        set_status("Nothing is stored in \"" + sp->name + "\".", false);
+        return;
+    }
+    run("scratchpad-toggle:" + sp->name);
+    set_status("Toggled \"" + sp->name + "\".", false);
+}
+
+void OverlayWindow::cycle_member_of_selection(int delta) {
+    const Scratchpad* sp = selected();
+    if (sp == nullptr || sp->windows.empty()) {
+        return;
+    }
+    run(std::string(delta < 0 ? "scratchpad-window-show-previous:"
+                              : "scratchpad-window-show-next:") +
+        sp->name);
+}
+
+void OverlayWindow::focus_selected() {
+    const Scratchpad* sp = selected();
+    if (sp == nullptr || sp->windows.empty()) {
+        return;
+    }
+    // Prefer the window Umbriel already considers focused, then any visible one,
+    // otherwise just the first: `window-focus` reveals it from a hidden
+    // scratchpad, so any member is a valid target.
+    const WindowInfo* target = nullptr;
+    for (const auto& w : sp->windows) {
+        if (w.focused) {
+            target = &w;
+            break;
+        }
+    }
+    if (target == nullptr) {
+        for (const auto& w : sp->windows) {
+            if (w.visible) {
+                target = &w;
+                break;
+            }
+        }
+    }
+    if (target == nullptr) {
+        target = &sp->windows.front();
+    }
+    run("window-focus:" + target->id);
+    hide();
+}
+
+void OverlayWindow::select_and_toggle(int index) {
+    if (index < 0 || index >= static_cast<int>(m_scratchpads.size())) {
+        return;
+    }
+    select_index(index);
+    toggle_selected();
+}
+
+bool OverlayWindow::handle_key(guint keyval) {
+    switch (keyval) {
+        case GDK_KEY_j:
+        case GDK_KEY_J:
+        case GDK_KEY_Down:
+        case GDK_KEY_Tab:
+            move_selection(1);
+            return true;
+        case GDK_KEY_k:
+        case GDK_KEY_K:
+        case GDK_KEY_Up:
+        case GDK_KEY_ISO_Left_Tab:
+            move_selection(-1);
+            return true;
+        case GDK_KEY_Home:
+            select_index(0);
+            return true;
+        case GDK_KEY_End:
+            select_index(static_cast<int>(m_scratchpads.size()) - 1);
+            return true;
+        case GDK_KEY_space:
+            toggle_selected();
+            return true;
+        case GDK_KEY_Return:
+        case GDK_KEY_KP_Enter:
+            focus_selected();
+            return true;
+        case GDK_KEY_h:
+        case GDK_KEY_Left:
+            cycle_member_of_selection(-1);
+            return true;
+        case GDK_KEY_l:
+        case GDK_KEY_Right:
+            cycle_member_of_selection(1);
+            return true;
+        case GDK_KEY_Escape:
+            hide();
+            return true;
+        default:
+            break;
+    }
+    if (keyval >= GDK_KEY_1 && keyval <= GDK_KEY_9) {
+        select_and_toggle(static_cast<int>(keyval - GDK_KEY_1));
+        return true;
+    }
+    return false;
+}
+
 void OverlayWindow::update_capture_targets() {
-    if (!m_previews || !get_visible()) {
+    if (!get_visible()) {
         m_capture.set_targets({});
         return;
     }
@@ -430,33 +506,9 @@ void OverlayWindow::update_capture_targets() {
     m_capture.set_targets(std::move(ids));
 }
 
-void OverlayWindow::toggle_previews() {
-    m_previews = !m_previews;
-    if (m_preview_toggle != nullptr) {
-        if (m_previews) {
-            m_preview_toggle->add_css_class("spm-toggle-on");
-        } else {
-            m_preview_toggle->remove_css_class("spm-toggle-on");
-        }
-    }
-    rebuild();
-    set_status(m_previews ? "Window previews on." : "Window previews off.", false);
-}
-
-void OverlayWindow::refresh_previews() {
-    reload_config();
-    m_thumb_cache.clear();
-    rebuild();
-    m_capture.invalidate();
-    set_status("Reloaded configuration and refreshed previews.", false);
-}
-
 void OverlayWindow::on_thumbnail(Thumbnail thumbnail) {
     if (!thumbnail.ok || !thumbnail.pixbuf) {
-        auto slot = m_thumb_slots.find(thumbnail.window_id);
-        if (slot != m_thumb_slots.end() && slot->second.hint != nullptr) {
-            slot->second.hint->set_text("no preview");
-        }
+        // The tile keeps its monogram placeholder; there is nothing to show.
         return;
     }
     m_thumb_cache[thumbnail.window_id] = thumbnail.pixbuf;
@@ -472,99 +524,37 @@ void OverlayWindow::on_thumbnail(Thumbnail thumbnail) {
     }
 }
 
-Gtk::Widget* OverlayWindow::build_action_menu(std::vector<MenuEntry> entries) {
-    auto* button = icon_button("⋮", "More actions");
-    button->add_css_class("spm-menu-button");
-
-    auto* popover = new Gtk::Popover();  // owned explicitly; see clear_menus()
-    popover->set_has_arrow(false);
-    popover->set_autohide(true);
-    popover->set_position(Gtk::PositionType::BOTTOM);
-    popover->set_offset(0, 6);
-    popover->add_css_class("spm-menu");
-
-    auto* box = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 1);
-    box->add_css_class("spm-menu-box");
-    popover->set_child(*box);
-
-    for (auto& entry : entries) {
-        if (entry.separator_before) {
-            auto* separator = Gtk::make_managed<Gtk::Separator>(Gtk::Orientation::HORIZONTAL);
-            separator->add_css_class("spm-menu-separator");
-            separator->set_margin_top(4);
-            separator->set_margin_bottom(4);
-            box->append(*separator);
-        }
-
-        auto* item = Gtk::make_managed<Gtk::Button>();
-        item->add_css_class("spm-menu-item");
-        if (entry.danger) {
-            item->add_css_class("spm-menu-item-danger");
-        }
-        item->set_focus_on_click(false);
-
-        auto* label = Gtk::make_managed<Gtk::Label>(entry.label);
-        label->set_xalign(0.0f);
-        label->set_halign(Gtk::Align::START);
-        item->set_child(*label);
-
-        item->signal_clicked().connect([popover, fn = std::move(entry.activate)] {
-            popover->popdown();
-            fn();
-        });
-        box->append(*item);
-    }
-
-    popover->set_parent(*button);
-    button->signal_clicked().connect([popover] { popover->popup(); });
-    m_menu_popovers.push_back(popover);
-    return button;
-}
-
-void OverlayWindow::clear_menus() {
-    // Popovers are parented to their buttons, so they must be unparented before
-    // the buttons are destroyed to avoid finalizing a parent that still has a child.
-    for (auto* popover : m_menu_popovers) {
-        if (popover == nullptr) {
-            continue;
-        }
-        popover->popdown();
-        popover->unparent();
-        delete popover;
-    }
-    m_menu_popovers.clear();
-}
-
-Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp) {
-    const bool collapsed = m_collapsed.count(sp.name) > 0;
+Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int index) {
     const int visible = sp.visible_count();
-    const std::string name = sp.name;
 
-    auto* outer = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 6);
-    outer->add_css_class("spm-sp");
+    auto* row = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 8);
+    row->add_css_class("spm-sp");
+    // Focusable so grab_focus() can scroll the selection into view; Tab never
+    // reaches it because the key controller consumes it.
+    row->set_can_focus(true);
 
-    auto* header = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 6);
+    // Clicking a card makes it the selection, so mouse and keyboard agree on
+    // what the keybindings will act on.
+    auto gesture = Gtk::GestureClick::create();
+    gesture->signal_pressed().connect([this, index](int, double, double) { select_index(index); });
+    row->add_controller(gesture);
 
-    auto* fold = icon_button(collapsed ? "▸" : "▾", collapsed ? "Expand" : "Collapse");
-    fold->signal_clicked().connect([this, name, collapsed] {
-        if (collapsed) {
-            m_collapsed.erase(name);
-        } else {
-            m_collapsed.insert(name);
-        }
-        rebuild();
-    });
-    header->append(*fold);
+    auto* header = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
 
-    auto* name_label = Gtk::make_managed<Gtk::Label>(sp.name);
-    name_label->add_css_class("spm-sp-name");
-    name_label->add_css_class("spm-mono");
-    header->append(*name_label);
+    auto* name = Gtk::make_managed<Gtk::Label>(sp.name);
+    name->add_css_class("spm-sp-name");
+    name->add_css_class("spm-mono");
+    header->append(*name);
 
     if (sp.implicit) {
-        auto* tag = subtle_label("implicit");
-        header->append(*tag);
+        header->append(*subtle_label("implicit"));
     }
+
+    auto* spacer = Gtk::make_managed<Gtk::Box>();
+    spacer->set_hexpand(true);
+    header->append(*spacer);
+
+    header->append(*subtle_label(plural(sp.windows.size(), "window", "windows")));
 
     auto* badge = Gtk::make_managed<Gtk::Label>();
     badge->add_css_class("spm-badge");
@@ -573,7 +563,7 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp) {
         badge->add_css_class("spm-badge-off");
     } else if (visible > 0) {
         badge->set_text(visible == static_cast<int>(sp.windows.size()) ? "visible"
-                                                                       : "partly visible");
+                                                                      : "partly visible");
         badge->add_css_class("spm-badge-on");
     } else {
         badge->set_text("hidden");
@@ -581,99 +571,43 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp) {
     }
     header->append(*badge);
 
-    header->append(*subtle_label(plural(sp.windows.size(), "window", "windows")));
+    row->append(*header);
 
-    auto* spacer = Gtk::make_managed<Gtk::Box>();
-    spacer->set_hexpand(true);
-    header->append(*spacer);
-
-    auto* toggle = primary_button(visible > 0 ? "Hide" : "Show",
-                                  "scratchpad-toggle:" + sp.name);
-    toggle->signal_clicked().connect([this, name] { run("scratchpad-toggle:" + name); });
-    header->append(*toggle);
-
-    auto* previous = icon_button("◂", "Show only the previous window");
-    previous->signal_clicked().connect(
-        [this, name] { run("scratchpad-window-show-previous:" + name); });
-    header->append(*previous);
-
-    auto* next = icon_button("▸", "Show only the next window");
-    next->signal_clicked().connect(
-        [this, name] { run("scratchpad-window-show-next:" + name); });
-    header->append(*next);
-
-    std::vector<MenuEntry> menu;
-    menu.push_back(MenuEntry{"Focus next window",
-                             [this, name] { run("scratchpad-focus-next:" + name); }});
-    menu.push_back(MenuEntry{"Store focused window here",
-                             [this, name] { run("window-toggle-scratchpad:" + name); }});
-    menu.push_back(MenuEntry{"Move focused window here",
-                             [this, name] { run("window-move-to-scratchpad:" + name); }});
-    menu.push_back(MenuEntry{"Reveal in configuration", [this, sp] { reveal_source(sp); }});
-    if (sp.managed) {
-        menu.push_back(MenuEntry{"Delete scratchpad…", [this, sp] { confirm_delete(sp); },
-                                 /*danger=*/true, /*separator_before=*/true});
-    }
-    header->append(*build_action_menu(std::move(menu)));
-
-    outer->append(*header);
-
-    if (collapsed) {
-        return outer;
-    }
-
-    if (sp.spawn_when_empty) {
-        auto* hint = subtle_label("spawn_when_empty: " + *sp.spawn_when_empty);
-        hint->add_css_class("spm-mono");
-        hint->set_ellipsize(Pango::EllipsizeMode::END);
-        hint->set_single_line_mode(true);
-        outer->append(*hint);
-    }
-
-    int shown = 0;
-    if (!sp.windows.empty() && scratchpad_has_matches(sp)) {
-        // Previews are laid out two per row; without previews the tiles are
-        // single-line rows, so one per row reads better.
-        const int columns = m_previews ? 2 : 1;
+    if (!sp.windows.empty()) {
         auto* grid = Gtk::make_managed<Gtk::Grid>();
         grid->add_css_class("spm-grid");
-        grid->set_column_homogeneous(true);
+        // Columns are sized to the tiles (a fixed preview size) rather than
+        // stretched, so a tile is never wider than the image it shows and every
+        // row lines up with the next.
         grid->set_row_spacing(8);
         grid->set_column_spacing(8);
         grid->set_valign(Gtk::Align::START);
 
+        int shown = 0;
         for (const auto& window : sp.windows) {
-            if (!matches_filter(window)) {
-                continue;
-            }
-            grid->attach(*build_window_tile(window, sp), shown % columns, shown / columns, 1, 1);
+            grid->attach(*build_window_tile(window), shown % kColumns, shown / kColumns, 1, 1);
             ++shown;
         }
-        if (shown > 0) {
-            outer->append(*grid);
-        }
-    }
-
-    if (shown == 0) {
+        row->append(*grid);
+    } else {
         Glib::ustring text = "Empty.";
-        if (!m_filter.empty()) {
-            text = "No windows match the filter.";
-        } else if (sp.spawn_when_empty) {
-            text = "Empty — showing it runs the command above.";
+        if (sp.spawn_when_empty) {
+            text = "Empty — toggling it runs: " + *sp.spawn_when_empty;
         } else if (sp.implicit) {
             text = "Empty — move a window here with Mod+Shift+Space.";
         }
         auto* empty = Gtk::make_managed<Gtk::Label>(text);
         empty->add_css_class("spm-empty");
         empty->set_xalign(0.0f);
-        empty->set_wrap(true);
-        outer->append(*empty);
+        empty->set_ellipsize(Pango::EllipsizeMode::END);
+        empty->set_single_line_mode(true);
+        row->append(*empty);
     }
 
-    return outer;
+    return row;
 }
 
-Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w, const Scratchpad& sp) {
+Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     const std::string id = w.id;
 
     auto* tile = Gtk::make_managed<Gtk::Overlay>();
@@ -685,10 +619,54 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w, const Scratch
     } else if (w.visible) {
         tile->add_css_class("spm-tile-visible");
     }
-    tile->set_hexpand(true);
+    // The tile - not the picture - carries the fixed size, so a window that has
+    // no capture yet (or never will) still gets a full-size tile instead of
+    // collapsing onto its caption.
+    tile->set_size_request(kTileWidth, kTileHeight);
+    // Never let a tile expand beyond the preview it shows.
+    tile->set_halign(Gtk::Align::START);
 
-    // The caption bar is the bottom overlay of a preview tile, and the whole
-    // tile when previews are switched off.
+    // Clicking a preview jumps to that window and dismisses the overlay, the
+    // same thing `enter` does for the selection.
+    auto gesture = Gtk::GestureClick::create();
+    gesture->signal_released().connect([this, id](int, double, double) {
+        run("window-focus:" + id);
+        hide();
+    });
+    tile->add_controller(gesture);
+
+    auto* picture = Gtk::make_managed<Gtk::Picture>();
+    picture->add_css_class("spm-tile-shot");
+    picture->set_content_fit(Gtk::ContentFit::CONTAIN);
+    picture->set_can_shrink(true);
+    tile->set_child(*picture);
+
+    // Shown until a captured image arrives, or forever when capture is not
+    // possible for this window. Just a monogram: anything longer would be
+    // clipped by the caption bar the tile is showing behind.
+    auto* placeholder = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 2);
+    placeholder->add_css_class("spm-tile-placeholder");
+    placeholder->set_halign(Gtk::Align::CENTER);
+    placeholder->set_valign(Gtk::Align::CENTER);
+
+    auto* monogram = Gtk::make_managed<Gtk::Label>(window_monogram(w));
+    monogram->add_css_class("spm-tile-monogram");
+    monogram->set_xalign(0.5f);
+    placeholder->append(*monogram);
+    tile->add_overlay(*placeholder);
+
+    if (w.urgent || w.focused || w.visible) {
+        auto* pill = Gtk::make_managed<Gtk::Label>(
+            w.urgent ? "urgent" : (w.focused ? "focused" : "visible"));
+        pill->add_css_class("spm-badge");
+        pill->add_css_class(w.urgent ? "spm-badge-urgent" : "spm-badge-on");
+        pill->set_halign(Gtk::Align::START);
+        pill->set_valign(Gtk::Align::START);
+        pill->set_margin_start(8);
+        pill->set_margin_top(8);
+        tile->add_overlay(*pill);
+    }
+
     auto* bar = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 4);
     bar->add_css_class("spm-tile-bar");
 
@@ -711,72 +689,6 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w, const Scratch
     text->append(*meta);
     bar->append(*text);
 
-    auto* unstore = icon_button("↩", "Return this window to its workspace");
-    unstore->add_css_class("spm-tile-action");
-    unstore->signal_clicked().connect([this, id, name = sp.name] {
-        run("window-focus:" + id);
-        run("window-restore-from-scratchpad:" + name);
-    });
-    bar->append(*unstore);
-
-    auto* close = icon_button("✕", "Close this window");
-    close->add_css_class("spm-tile-action");
-    close->add_css_class("spm-tile-close");
-    close->signal_clicked().connect([this, id] { run("window-close:" + id); });
-    bar->append(*close);
-
-    // Clicking the preview itself focuses the window; the buttons above claim
-    // their own clicks, so they do not double up.
-    auto gesture = Gtk::GestureClick::create();
-    gesture->signal_released().connect([this, id](int, double, double) {
-        run("window-focus:" + id);
-    });
-    tile->add_controller(gesture);
-
-    if (!m_previews) {
-        tile->add_css_class("spm-tile-compact");
-        tile->set_child(*bar);
-        return tile;
-    }
-
-    auto* picture = Gtk::make_managed<Gtk::Picture>();
-    picture->add_css_class("spm-tile-shot");
-    picture->set_content_fit(Gtk::ContentFit::CONTAIN);
-    picture->set_can_shrink(true);
-    picture->set_size_request(330, 186);
-    tile->set_child(*picture);
-
-    // Shown until a captured image arrives, or forever when capture is not
-    // possible for this window.
-    auto* placeholder = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 2);
-    placeholder->add_css_class("spm-tile-placeholder");
-    placeholder->set_halign(Gtk::Align::CENTER);
-    placeholder->set_valign(Gtk::Align::CENTER);
-
-    auto* monogram = Gtk::make_managed<Gtk::Label>(window_monogram(w));
-    monogram->add_css_class("spm-tile-monogram");
-    monogram->set_xalign(0.5f);
-    placeholder->append(*monogram);
-
-    auto* hint = Gtk::make_managed<Gtk::Label>(
-        m_capture.available() ? "capturing…" : "no preview available");
-    hint->add_css_class("spm-tile-hint");
-    hint->set_xalign(0.5f);
-    placeholder->append(*hint);
-    tile->add_overlay(*placeholder);
-
-    if (w.urgent || w.focused || w.visible) {
-        auto* pill = Gtk::make_managed<Gtk::Label>(
-            w.urgent ? "urgent" : (w.focused ? "focused" : "visible"));
-        pill->add_css_class("spm-badge");
-        pill->add_css_class(w.urgent ? "spm-badge-urgent" : "spm-badge-on");
-        pill->set_halign(Gtk::Align::START);
-        pill->set_valign(Gtk::Align::START);
-        pill->set_margin_start(8);
-        pill->set_margin_top(8);
-        tile->add_overlay(*pill);
-    }
-
     bar->set_valign(Gtk::Align::END);
     tile->add_overlay(*bar);
 
@@ -785,170 +697,8 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w, const Scratch
         picture->set_pixbuf(cached->second);
         placeholder->set_visible(false);
     }
-    m_thumb_slots[id] = ThumbSlot{picture, placeholder, hint};
+    m_thumb_slots[id] = ThumbSlot{picture, placeholder};
     return tile;
-}
-
-void OverlayWindow::hide_prompt() {
-    if (m_prompt != nullptr) {
-        m_prompt->set_visible(false);
-    }
-    clear_prompt_body();
-    if (m_prompt_actions != nullptr) {
-        clear_box(*m_prompt_actions);
-    }
-}
-
-void OverlayWindow::clear_prompt_body() {
-    if (m_prompt_body != nullptr) {
-        clear_box(*m_prompt_body);
-    }
-}
-
-void OverlayWindow::set_prompt_actions(std::vector<Action> actions) {
-    clear_box(*m_prompt_actions);
-    for (auto& [label, handler] : actions) {
-        auto* button = primary_button(label, label);
-        button->signal_clicked().connect([fn = std::move(handler)] { fn(); });
-        m_prompt_actions->append(*button);
-    }
-}
-
-void OverlayWindow::show_new_scratchpad_form() {
-    std::string reason;
-    if (!m_config.can_edit(&reason)) {
-        hide_prompt();
-        set_status(reason, true);
-        return;
-    }
-
-    clear_prompt_body();
-    m_prompt_label->set_text(
-        "Create a named scratchpad. Declaring any named scratchpad replaces Umbriel's implicit "
-        "\"default\" one, and windows stored in it return to their saved workspaces.");
-
-    auto* name = Gtk::make_managed<Gtk::Entry>();
-    name->add_css_class("spm-search");
-    name->set_placeholder_text("name — letters, digits, - _ . (\"default\" is reserved)");
-    m_prompt_body->append(*name);
-
-    auto* spawn = Gtk::make_managed<Gtk::Entry>();
-    spawn->add_css_class("spm-search");
-    spawn->set_placeholder_text("optional: command to run when toggled while empty");
-    m_prompt_body->append(*spawn);
-
-    set_prompt_actions({
-        {"Create",
-         [this, name, spawn] {
-             commit_new_scratchpad(std::string(name->get_text()), std::string(spawn->get_text()));
-         }},
-        {"Cancel", [this] { hide_prompt(); }},
-    });
-
-    m_prompt->set_visible(true);
-    name->grab_focus();
-}
-
-void OverlayWindow::commit_new_scratchpad(const std::string& name, const std::string& spawn) {
-    if (name.empty()) {
-        set_status("Enter a name for the scratchpad.", true);
-        return;
-    }
-    if (m_config.name_exists(name)) {
-        set_status("A scratchpad named \"" + name + "\" already exists.", true);
-        return;
-    }
-
-    if (!m_config.managed_include_present()) {
-        const Glib::ustring text =
-            "Scratchpads created here are stored in\n" + m_config.managed_path() +
-            "\n\nThat file will be added to " + m_config.primary_config() +
-            " (a .scratchpad-manager.bak backup is written first). Continue?";
-        set_prompt_actions({
-            {"Continue", [this, name, spawn] { perform_add(name, spawn); }},
-            {"Cancel", [this] { hide_prompt(); }},
-        });
-        m_prompt_label->set_text(text);
-        m_prompt->set_visible(true);
-        return;
-    }
-
-    perform_add(name, spawn);
-}
-
-void OverlayWindow::perform_add(const std::string& name, const std::string& spawn) {
-    std::optional<std::string> spawn_command;
-    if (!spawn.empty()) {
-        spawn_command = spawn;
-    }
-
-    std::string error;
-    if (!m_config.add_scratchpad(name, spawn_command, &error)) {
-        set_status(error, true);
-        return;
-    }
-    after_config_change("Created scratchpad \"" + name + "\".");
-}
-
-void OverlayWindow::confirm_delete(const Scratchpad& sp) {
-    if (!sp.managed) {
-        set_status("Only scratchpads created here can be removed.", true);
-        return;
-    }
-    const std::string name = sp.name;
-    clear_prompt_body();
-    m_prompt_label->set_text("Delete scratchpad \"" + name + "\"? It is removed from " +
-                             m_config.managed_path() +
-                             ". Windows stored in it are restored by Umbriel.");
-    set_prompt_actions({
-        {"Delete",
-         [this, name] {
-             std::string error;
-             if (!m_config.remove_scratchpad(name, &error)) {
-                 set_status(error, true);
-                 return;
-             }
-             after_config_change("Removed scratchpad \"" + name + "\".");
-         }},
-        {"Cancel", [this] { hide_prompt(); }},
-    });
-    m_prompt->set_visible(true);
-}
-
-void OverlayWindow::after_config_change(const Glib::ustring& message) {
-    std::string error;
-    m_config.trigger_reload(&error);
-    reload_config();
-    rebuild();
-    hide_prompt();
-    set_status(message, false);
-}
-
-void OverlayWindow::reveal_source(const Scratchpad& sp) {
-    std::string path;
-    if (sp.managed) {
-        path = m_config.managed_path();
-    } else if (!sp.sources.empty()) {
-        path = sp.sources.front().file;
-    } else {
-        path = m_config.primary_config();
-    }
-    if (path.empty()) {
-        set_status("No configuration file to open.", true);
-        return;
-    }
-    reveal_file(path);
-}
-
-void OverlayWindow::reveal_file(const std::string& path) {
-    if (path.empty()) {
-        return;
-    }
-    try {
-        Gio::AppInfo::launch_default_for_uri("file://" + path);
-    } catch (const Glib::Error&) {
-        // No handler configured; ignore.
-    }
 }
 
 }  // namespace spm

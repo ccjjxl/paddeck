@@ -32,8 +32,8 @@ namespace {
 /// native size, so this is what keeps the per-frame CPU cost small. Every
 /// thumbnail is letterboxed onto a canvas of exactly this size so that tiles in
 /// the grid are uniform no matter the window's aspect ratio.
-constexpr int kThumbnailWidth = 330;
-constexpr int kThumbnailHeight = 186;
+constexpr int kThumbnailWidth = 220;
+constexpr int kThumbnailHeight = 124;
 
 /// How often the visible windows are re-captured while the overlay is open.
 constexpr auto kRefreshInterval = std::chrono::milliseconds(4000);
