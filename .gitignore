@@ -1,0 +1,8 @@
+build/
+builddir/
+subprojects/
+*.o
+*.so
+*.bak
+compile_commands.json
+.cache/
