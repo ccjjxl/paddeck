@@ -17,7 +17,7 @@
 
 #include "ui/theme.hpp"
 
-namespace spm {
+namespace paddeck {
 
 namespace {
 
@@ -36,7 +36,7 @@ constexpr const char* kHint =
 
 Gtk::Label* subtle_label(const Glib::ustring& text) {
     auto* label = Gtk::make_managed<Gtk::Label>(text);
-    label->add_css_class("spm-subtle");
+    label->add_css_class("pd-subtle");
     label->set_xalign(0.0f);
     return label;
 }
@@ -142,7 +142,7 @@ OverlayWindow::~OverlayWindow() {
 void OverlayWindow::setup_layer_shell() {
     auto* window = GTK_WINDOW(gobj());
     gtk_layer_init_for_window(window);
-    gtk_layer_set_namespace(window, "scratchpad-manager");
+    gtk_layer_set_namespace(window, "paddeck");
     gtk_layer_set_layer(window, GTK_LAYER_SHELL_LAYER_OVERLAY);
     gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP, TRUE);
     gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
@@ -155,14 +155,14 @@ void OverlayWindow::setup_layer_shell() {
 void OverlayWindow::build_ui() {
     set_title("Scratchpads");
     set_decorated(false);
-    add_css_class("spm-window");
+    add_css_class("pd-window");
 
     m_backdrop = Gtk::make_managed<Gtk::CenterBox>();
-    m_backdrop->add_css_class("spm-backdrop");
+    m_backdrop->add_css_class("pd-backdrop");
     set_child(*m_backdrop);
 
     m_card = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 10);
-    m_card->add_css_class("spm-card");
+    m_card->add_css_class("pd-card");
     m_card->set_halign(Gtk::Align::CENTER);
     m_card->set_valign(Gtk::Align::CENTER);
     m_card->set_size_request(760, -1);
@@ -170,7 +170,7 @@ void OverlayWindow::build_ui() {
 
     auto* header = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
     auto* title = Gtk::make_managed<Gtk::Label>("Scratchpads");
-    title->add_css_class("spm-title");
+    title->add_css_class("pd-title");
     title->set_halign(Gtk::Align::START);
     title->set_hexpand(true);
     header->append(*title);
@@ -181,7 +181,7 @@ void OverlayWindow::build_ui() {
     m_card->append(*header);
 
     m_scroll = Gtk::make_managed<Gtk::ScrolledWindow>();
-    m_scroll->add_css_class("spm-scroll");
+    m_scroll->add_css_class("pd-scroll");
     m_scroll->set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
     // Hug the content, but never grow past a comfortable maximum.
     m_scroll->set_propagate_natural_height(true);
@@ -200,7 +200,7 @@ void OverlayWindow::build_ui() {
 
     auto* footer = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
     auto* hint = subtle_label(kHint);
-    hint->add_css_class("spm-hint");
+    hint->add_css_class("pd-hint");
     hint->set_hexpand(true);
     hint->set_ellipsize(Pango::EllipsizeMode::END);
     hint->set_single_line_mode(true);
@@ -266,10 +266,10 @@ void OverlayWindow::on_connection(bool connected) {
         return;
     }
     m_connection->set_text(connected ? "● connected" : "○ reconnecting…");
-    m_connection->remove_css_class("spm-subtle");
-    m_connection->remove_css_class("spm-ok");
-    m_connection->remove_css_class("spm-error");
-    m_connection->add_css_class(connected ? "spm-ok" : "spm-error");
+    m_connection->remove_css_class("pd-subtle");
+    m_connection->remove_css_class("pd-ok");
+    m_connection->remove_css_class("pd-error");
+    m_connection->add_css_class(connected ? "pd-ok" : "pd-error");
 }
 
 void OverlayWindow::on_action_result(std::string action, bool ok, std::string error) {
@@ -292,10 +292,10 @@ void OverlayWindow::set_status(const Glib::ustring& message, bool error) {
         return;
     }
     m_status->set_text(message);
-    m_status->remove_css_class("spm-subtle");
-    m_status->remove_css_class("spm-ok");
-    m_status->remove_css_class("spm-error");
-    m_status->add_css_class(error ? "spm-error" : "spm-ok");
+    m_status->remove_css_class("pd-subtle");
+    m_status->remove_css_class("pd-ok");
+    m_status->remove_css_class("pd-error");
+    m_status->add_css_class(error ? "pd-error" : "pd-ok");
 }
 
 void OverlayWindow::run(std::string action) {
@@ -335,7 +335,7 @@ void OverlayWindow::rebuild() {
 
     if (m_scratchpads.empty()) {
         auto* empty = Gtk::make_managed<Gtk::Label>("No scratchpads are configured.");
-        empty->add_css_class("spm-empty");
+        empty->add_css_class("pd-empty");
         empty->set_xalign(0.0f);
         m_list->append(*empty);
     }
@@ -354,11 +354,11 @@ void OverlayWindow::apply_selection() {
             continue;
         }
         if (static_cast<int>(i) == m_selected) {
-            row->add_css_class("spm-sp-selected");
+            row->add_css_class("pd-sp-selected");
             // Focus is what makes the scrolled window keep the selection visible.
             row->grab_focus();
         } else {
-            row->remove_css_class("spm-sp-selected");
+            row->remove_css_class("pd-sp-selected");
         }
     }
 }
@@ -528,7 +528,7 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
     const int visible = sp.visible_count();
 
     auto* row = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 8);
-    row->add_css_class("spm-sp");
+    row->add_css_class("pd-sp");
     // Focusable so grab_focus() can scroll the selection into view; Tab never
     // reaches it because the key controller consumes it.
     row->set_can_focus(true);
@@ -542,8 +542,8 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
     auto* header = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 8);
 
     auto* name = Gtk::make_managed<Gtk::Label>(sp.name);
-    name->add_css_class("spm-sp-name");
-    name->add_css_class("spm-mono");
+    name->add_css_class("pd-sp-name");
+    name->add_css_class("pd-mono");
     header->append(*name);
 
     if (sp.implicit) {
@@ -557,17 +557,17 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
     header->append(*subtle_label(plural(sp.windows.size(), "window", "windows")));
 
     auto* badge = Gtk::make_managed<Gtk::Label>();
-    badge->add_css_class("spm-badge");
+    badge->add_css_class("pd-badge");
     if (sp.windows.empty()) {
         badge->set_text("empty");
-        badge->add_css_class("spm-badge-off");
+        badge->add_css_class("pd-badge-off");
     } else if (visible > 0) {
         badge->set_text(visible == static_cast<int>(sp.windows.size()) ? "visible"
                                                                       : "partly visible");
-        badge->add_css_class("spm-badge-on");
+        badge->add_css_class("pd-badge-on");
     } else {
         badge->set_text("hidden");
-        badge->add_css_class("spm-badge-off");
+        badge->add_css_class("pd-badge-off");
     }
     header->append(*badge);
 
@@ -575,7 +575,7 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
 
     if (!sp.windows.empty()) {
         auto* grid = Gtk::make_managed<Gtk::Grid>();
-        grid->add_css_class("spm-grid");
+        grid->add_css_class("pd-grid");
         // Columns are sized to the tiles (a fixed preview size) rather than
         // stretched, so a tile is never wider than the image it shows and every
         // row lines up with the next.
@@ -597,7 +597,7 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
             text = "Empty — move a window here with Mod+Shift+Space.";
         }
         auto* empty = Gtk::make_managed<Gtk::Label>(text);
-        empty->add_css_class("spm-empty");
+        empty->add_css_class("pd-empty");
         empty->set_xalign(0.0f);
         empty->set_ellipsize(Pango::EllipsizeMode::END);
         empty->set_single_line_mode(true);
@@ -611,13 +611,13 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     const std::string id = w.id;
 
     auto* tile = Gtk::make_managed<Gtk::Overlay>();
-    tile->add_css_class("spm-tile");
+    tile->add_css_class("pd-tile");
     if (w.urgent) {
-        tile->add_css_class("spm-tile-urgent");
+        tile->add_css_class("pd-tile-urgent");
     } else if (w.focused) {
-        tile->add_css_class("spm-tile-focused");
+        tile->add_css_class("pd-tile-focused");
     } else if (w.visible) {
-        tile->add_css_class("spm-tile-visible");
+        tile->add_css_class("pd-tile-visible");
     }
     // The tile - not the picture - carries the fixed size, so a window that has
     // no capture yet (or never will) still gets a full-size tile instead of
@@ -636,7 +636,7 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     tile->add_controller(gesture);
 
     auto* picture = Gtk::make_managed<Gtk::Picture>();
-    picture->add_css_class("spm-tile-shot");
+    picture->add_css_class("pd-tile-shot");
     picture->set_content_fit(Gtk::ContentFit::CONTAIN);
     picture->set_can_shrink(true);
     tile->set_child(*picture);
@@ -645,12 +645,12 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     // possible for this window. Just a monogram: anything longer would be
     // clipped by the caption bar the tile is showing behind.
     auto* placeholder = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 2);
-    placeholder->add_css_class("spm-tile-placeholder");
+    placeholder->add_css_class("pd-tile-placeholder");
     placeholder->set_halign(Gtk::Align::CENTER);
     placeholder->set_valign(Gtk::Align::CENTER);
 
     auto* monogram = Gtk::make_managed<Gtk::Label>(window_monogram(w));
-    monogram->add_css_class("spm-tile-monogram");
+    monogram->add_css_class("pd-tile-monogram");
     monogram->set_xalign(0.5f);
     placeholder->append(*monogram);
     tile->add_overlay(*placeholder);
@@ -658,8 +658,8 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     if (w.urgent || w.focused || w.visible) {
         auto* pill = Gtk::make_managed<Gtk::Label>(
             w.urgent ? "urgent" : (w.focused ? "focused" : "visible"));
-        pill->add_css_class("spm-badge");
-        pill->add_css_class(w.urgent ? "spm-badge-urgent" : "spm-badge-on");
+        pill->add_css_class("pd-badge");
+        pill->add_css_class(w.urgent ? "pd-badge-urgent" : "pd-badge-on");
         pill->set_halign(Gtk::Align::START);
         pill->set_valign(Gtk::Align::START);
         pill->set_margin_start(8);
@@ -668,21 +668,21 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     }
 
     auto* bar = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 4);
-    bar->add_css_class("spm-tile-bar");
+    bar->add_css_class("pd-tile-bar");
 
     auto* text = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 0);
     text->set_hexpand(true);
 
     auto* title = Gtk::make_managed<Gtk::Label>();
     title->set_text(w.title.empty() ? Glib::ustring("(untitled)") : Glib::ustring(w.title));
-    title->add_css_class("spm-tile-title");
+    title->add_css_class("pd-tile-title");
     title->set_xalign(0.0f);
     title->set_ellipsize(Pango::EllipsizeMode::END);
     title->set_single_line_mode(true);
     text->append(*title);
 
     auto* meta = Gtk::make_managed<Gtk::Label>(window_meta(w));
-    meta->add_css_class("spm-tile-meta");
+    meta->add_css_class("pd-tile-meta");
     meta->set_xalign(0.0f);
     meta->set_ellipsize(Pango::EllipsizeMode::END);
     meta->set_single_line_mode(true);
@@ -701,4 +701,4 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     return tile;
 }
 
-}  // namespace spm
+}  // namespace paddeck

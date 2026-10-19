@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scratchpads 使用手册 — Umbriel 暂存区切换器</title>
+<title>paddeck 使用手册 — Umbriel 暂存区切换器</title>
 <style>
   :root {
     --bg: #16121c;
@@ -265,14 +265,23 @@
     details > summary { list-style: none; }
     section { break-inside: avoid-page; }
   }
+
+  /* ---------- language switch ---------- */
+  .lang { display: flex; gap: 6px; justify-content: flex-end; align-items: center;
+          font-size: .82rem; margin-bottom: 12px; }
+  .lang a, .lang span { padding: 2px 10px; border-radius: 999px;
+          border: 1px solid var(--border); text-decoration: none; color: var(--muted); }
+  .lang a:hover { color: var(--accent); border-color: var(--accent); }
+  .lang .active { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
 </style>
 </head>
 <body>
 
 <header class="hero">
   <div class="wrap">
+    <div class="lang"><a href="index.html">English</a><span class="active">简体中文</span></div>
     <span class="kicker">Umbriel · 使用手册</span>
-    <h1>Scratchpads —— 暂存区切换器</h1>
+    <h1>paddeck —— 暂存区切换器</h1>
     <p class="lede">
       一个图形界面，用来<b>切换</b> Umbriel 的 scratchpad（暂存区）：
       看到每个暂存区里存着哪些窗口、它们的<b>真实画面</b>，
@@ -344,7 +353,7 @@
 
       <h3>第一步：确认已经安装</h3>
       <p>在终端里执行下面这行，如果有版本号输出，就说明已经装好了：</p>
-      <pre><code>scratchpads-umbriel --version</code></pre>
+      <pre><code>paddeck --version</code></pre>
       <p>如果提示“命令未找到”，请让安装者（或你自己）执行：</p>
       <pre><code>meson setup build
 ninja -C build
@@ -356,7 +365,7 @@ sudo ninja -C build install</code></pre>
         <code>~/.config/umbriel/binds.toml</code>，加入一行：
       </p>
       <pre><code>[keybinds]
-"Mod+S" = "spawn:scratchpads-umbriel"</code></pre>
+"Mod+S" = "spawn:paddeck"</code></pre>
       <p>
         键位 <code>"Mod+S"</code> 可以换成你喜欢的任意组合。
         保存后需要让 Umbriel 重新读取配置（多数情况下按一下快捷键或重载配置即可生效）。
@@ -709,7 +718,7 @@ opacity = 0.9</code></pre>
         <ul>
           <li>快捷键有没有写对（<code>~/.config/umbriel/binds.toml</code> 里的 <code>[keybinds]</code> 段落）。</li>
           <li>改完配置后 Umbriel 有没有重新加载。</li>
-          <li>在终端里直接跑 <code>scratchpads-umbriel</code> 能不能打开面板。</li>
+          <li>在终端里直接跑 <code>paddeck</code> 能不能打开面板。</li>
         </ul>
       </details>
 
@@ -785,7 +794,7 @@ opacity = 0.9</code></pre>
     <section id="cli">
       <h2>9. 进阶：命令行</h2>
       <p>日常使用不需要命令行，但它在脚本和排查问题时很有用。</p>
-      <pre><code>scratchpads-umbriel [选项]
+      <pre><code>paddeck [选项]
 
   -c, --config &lt;路径&gt;   指定 Umbriel 配置文件，而不是按默认顺序查找
       --socket &lt;路径&gt;   指定通信接口（默认 $UMBRIEL_SOCKET）
@@ -795,7 +804,7 @@ opacity = 0.9</code></pre>
   -v, --version         显示版本</code></pre>
 
       <p><b>不打开界面，直接看清单：</b></p>
-      <pre><code>$ scratchpads-umbriel --dump
+      <pre><code>$ paddeck --dump
 config: /home/me/.config/umbriel/config.toml
 loaded: 6 file(s)
 
@@ -828,12 +837,12 @@ loaded: 6 file(s)
         </li>
         <li>
           <b>用 <code>--dump</code> 看原始数据。</b>
-          <code>scratchpads-umbriel --dump</code> 会打印工具看到的全部暂存区与窗口，
+          <code>paddeck --dump</code> 会打印工具看到的全部暂存区与窗口，
           方便对照是不是配置没生效。
         </li>
         <li>
           <b>没有画面？</b> 属于正常降级，功能不受影响；想确认的话，
-          在终端里直接运行 <code>scratchpads-umbriel</code> 观察输出。
+          在终端里直接运行 <code>paddeck</code> 观察输出。
         </li>
         <li>
           <b>暂存区没出现在面板里？</b> 确认 <code>config.toml</code> 里有
@@ -852,7 +861,7 @@ loaded: 6 file(s)
 
   <footer>
     <p>
-      Scratchpads —— Umbriel 暂存区切换器 · 版本 0.1.0 ·
+      paddeck —— Umbriel 暂存区切换器 · 版本 0.1.0 ·
       本页为离线文档，可直接在浏览器中打开，无需网络。
     </p>
   </footer>

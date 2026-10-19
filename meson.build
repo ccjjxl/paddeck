@@ -1,4 +1,4 @@
-project('scratchpads-umbriel', 'cpp', 'c',
+project('paddeck', 'cpp', 'c',
   version: '0.1.0',
   meson_version: '>=1.0.0',
   default_options: [
@@ -20,8 +20,8 @@ wayland_protocols_dir = wayland_protocols_dep.get_variable(pkgconfig: 'pkgdatadi
 
 # Single source of truth for the version string (also used by --version).
 version_conf = configuration_data()
-version_conf.set_quoted('SPM_VERSION', meson.project_version())
-configure_file(output: 'spm_config.hpp', configuration: version_conf)
+version_conf.set_quoted('PADDECK_VERSION', meson.project_version())
+configure_file(output: 'paddeck_config.hpp', configuration: version_conf)
 
 # ext-image-copy-capture-v1 lets us grab the pixels of a single toplevel - even
 # one hidden inside a scratchpad. The identifiers it hands out match the window
@@ -64,7 +64,7 @@ sources = files(
   'src/ui/overlay_window.cpp',
 )
 
-executable('scratchpads-umbriel', sources,
+executable('paddeck', sources,
   dependencies: [gtkmm_dep, layershell_dep, json_dep, toml_dep, wayland_dep],
   link_with: protocol_lib,
   include_directories: [include_directories('src'), include_directories('.')],

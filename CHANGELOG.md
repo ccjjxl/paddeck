@@ -1,104 +1,96 @@
-# 更新记录
+# Changelog
 
-本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
-
-## [未发布]
-
-把核心收窄为**切换**：界面转为全键盘操作，配置只读。
-
-### 界面
-
-- 面板只做一件事：切换。当前选中项以**绿色边框**与绿色名称标出，所有按键都作用于它；
-  面板与缩略图的轮廓保持原样（主题的 `colors.border.unfocused`，在默认配色里几乎不可见）。
-  选中与未选中的边框宽度一致（都是 1px），切换选中项时缩略图不会抖动。
-- 全键盘操作：`j` / `k`（或 `↑` `↓`、`Tab` / `Shift+Tab`）移动选中项，
-  `Space` 显示 / 隐藏整个暂存区，`h` / `l`（或 `←` `→`）逐个成员窗口，
-  `Enter` 跳转到窗口并关闭面板，`1`–`9` 直接跳到第 n 个并切换，
-  `Home` / `End` 首尾，`Esc` 关闭。底部常驻一行按键提示。
-- 选中卡片自动滚入视口。
-- 缩略图网格由 2 列 330×186 改为 3 列 220×124，抓帧与内存开销更低。
-- 卡片尺寸改由卡片自身的 `size_request` 约束：抓帧尚未完成或永远失败时，
-  卡片不再塌陷到标题栏上；同时去掉会被标题栏裁切的 `capturing…` / `no preview`
-  占位文案，无画面时只显示应用名首字母。
-- 移除 `⋮` 菜单、`⟳` 重新加载、`▦` 预览开关、搜索框与底栏操作按钮。
-  面板每次打开都会重读配置，因此不再需要手动重载。
-
-### 功能删减
-
-- 移除关闭窗口、归还到工作区、存入 / 移入当前窗口、按标题过滤。
-- 移除全部配置写路径：托管文件 `scratchpads-managed.toml`、`[include]` 注入、
-  配置备份、确认弹窗，以及 `--add` / `--spawn` / `--remove`。配置变为只读，
-  运行期间不写任何文件。
-
-### 其它
-
-- `ScratchpadDef` / `Scratchpad` 去掉 `managed` 标记与相关显示。
-- `docs/manual.html` 与 `README.md` 按新界面与按键重写，并补充推荐的
-  Umbriel 配置（`[animation.scratchpad] scale = 0.9`）以及为什么不能用
-  `match.is_scratchpad` + `default_floating*` 达到同样效果。
-
-### 已知限制
-
-- 抓帧必须由合成器提供 `ext-image-copy-capture-v1`；协议不支持让合成器
-  直接缩放到缩略图尺寸，因此每次抓取都是原分辨率读回后再本地缩放。
-- 面板打开期间每 4 秒会重新抓取一次可见的窗口，长时间开着会有持续的开销。
+All notable changes to this project are documented in this file. This project
+follows [Semantic Versioning](https://semver.org/).
 
 ## [0.1.0] — 2026-10-19
 
-首个版本。
+First public release.
 
-### 界面
+`paddeck` is a keyboard-driven scratchpad switcher for the
+[Umbriel](https://github.com/noctalia-dev/umbriel) Wayland compositor. It shows
+every scratchpad with live thumbnails of the windows inside it, and lets you
+switch scratchpads without touching the mouse.
 
-- 全屏 `overlay` 层的 layer-shell 面板，`namespace = "scratchpad-manager"`，
-  键盘交互 `exclusive`、`exclusive_zone = 0`（不挤占其它窗口）。
-- 按同一快捷键或 `Esc` 关闭；点击面板外的暗色区域也可关闭。
-- 面板内容自适应高度，配色与圆角跟随 Umbriel 主题（订阅 `theme` 事件动态生成 CSS）。
+### Interface
 
-### 窗口缩略图
+- Full-screen layer-shell panel on the `overlay` layer with
+  `namespace = "paddeck"`, keyboard interactivity `exclusive` and
+  `exclusive_zone = 0` (it reserves no space from other windows).
+- One-line key legend permanently visible at the bottom of the panel.
+- The selected scratchpad card is outlined with the theme's accent green
+  (`accent_secondary`) and its name is tinted to match. Every other outline
+  keeps the theme's `colors.border.unfocused` at 1px, so the panel stays quiet
+  and moving the selection never shifts the layout.
+- Panel height adapts to its content; colours and corner radius follow the
+  Umbriel theme (CSS is generated on every `theme` event).
+- The selection scrolls into view automatically, and the panel closes on `Esc`,
+  on a second press of the launch shortcut, or on a click outside it.
 
-- 每个窗口以**真实画面缩略图**呈现，通过 Wayland 的
-  `ext-image-copy-capture-v1` + `ext-foreign-toplevel-list-v1` 逐窗口抓帧。
-- **隐藏在 scratchpad 里的窗口同样能预览**——`ext_foreign_toplevel_handle_v1`
-  的 identifier 与 Umbriel IPC 的 window id 完全一致，两边精确对应。
-- 抓帧在独立线程（自带一条 Wayland 连接）进行，覆盖层可见时每 4 秒刷新，
-  隐藏即停止；失败退避 20 秒。
-- 缩略图统一缩放到 330×186 画布，网格固定两列，尺寸整齐。
-- 合成器不支持相关协议时自动退化为文字列表，其余功能不受影响。
-- `▦` 可关闭预览（卡片变为紧凑条目并停止抓帧）；`⟳` 重载配置并强制重抓。
+### Switching
 
-### 运行时管理
+- Lists every scratchpad with its name, window count, a `visible` /
+  `partly visible` / `hidden` / `empty` badge, and an optional
+  `spawn_when_empty` hint.
+- Keyboard map: `j` / `k` (or `↑` `↓`, `Tab` / `Shift+Tab`) moves the selection,
+  `Space` shows / hides the whole scratchpad, `h` / `l` (or `←` `→`) cycles
+  member windows, `Enter` focuses a window and closes the panel, `1`–`9` jumps
+  to the n-th scratchpad and toggles it, `Home` / `End` jump to the ends, and
+  `Esc` closes.
+- Mouse equivalents: click a card to select it, click a thumbnail to focus that
+  window and close, click outside the panel to dismiss.
+- Disconnects and failed actions are reported at the bottom of the panel;
+  reconnection is automatic.
 
-- 列出每个 scratchpad：名称、窗口数量、`visible` / `hidden` / `empty` 状态。
-- 显示 / 隐藏整个 scratchpad、逐个切换成员（`◂` `▸`）、聚焦窗口、
-  归还到保存的工作区、关闭窗口。
-- `⋮` 菜单：聚焦下一个窗口、存入或移入当前窗口、在配置文件中定位、删除（危险色）。
-- 按标题 / app id 实时过滤窗口；折叠状态与断线重连均有提示与自动重连。
+### Window previews
 
-### 配置管理
+- Each window is shown as a thumbnail captured through the Wayland
+  `ext-image-copy-capture-v1` and `ext-foreign-toplevel-list-v1` protocols.
+- **Windows hidden inside a scratchpad can be previewed too** — the
+  `ext_foreign_toplevel_handle_v1` identifier matches Umbriel's IPC window id
+  exactly, so both sides pair up without guessing from titles.
+- Capture runs on a dedicated thread with its own Wayland connection; frames are
+  handed back to the GTK main thread through `Glib::Dispatcher`.
+- Thumbnails are scaled onto a 220×124 canvas and laid out three per row.
+- Refreshes every 4 seconds while the overlay is visible and stops immediately
+  when hidden; failed captures back off for 20 seconds.
+- Tiles fall back to the app id's initials when no preview is available (for
+  example when the compositor lacks the protocols); switching and focusing keep
+  working in that case.
 
-- 新建 scratchpad 写入独立的 `scratchpads-managed.toml`，支持可选的 `spawn_when_empty`。
-- 需要向主配置注入 `[include] files` 时先询问，注入前备份为
-  `config.toml.scratchpad-manager.bak`，且只做最小文本插入，保留注释与格式。
-- 只允许删除托管文件中的条目，用户手写的 scratchpad 只读。
-- 每次变更后自动发送 `config-reload`。
+### Configuration
 
-### 命令行
+- The Umbriel configuration is re-read every time the panel opens, including
+  recursive `[include]` / `[include.optional]` and `~` / `$VAR` expansion.
+- **Read-only**: no managed file, no include injection, no backup, no
+  confirmation dialogs. Scratchpads are added or removed by editing the
+  configuration directly. The process writes no files at all.
 
-- `--dump` 以纯文本打印 scratchpad 及其窗口，便于排查。
-- `--add` / `--spawn` / `--remove` 直接管理托管文件。
-- `--config` / `--socket` 覆盖配置与 IPC 路径，`--window` 使用普通窗口。
+### Command line
 
-### 文档
+- `--dump` prints scratchpads and their windows as plain text for
+  troubleshooting.
+- `--config` / `--socket` override the config and IPC paths; `--window` opens a
+  normal window instead of a layer-shell surface.
 
-- `docs/manual.html`：面向普通用户的离线中文使用手册
-  （自包含样式，无外部资源与脚本，支持深色 / 浅色与打印）。
-- `README.md`：构建、安装、架构与注意事项。
+### Documentation
 
-### 已知限制
+- `docs/index.html`: offline English user manual (self-contained styles, no
+  external assets or scripts, dark / light and print support).
+- `docs/zh.html`: the same manual in Chinese.
+- `README.md` (English) and `README.zh-CN.md` (Chinese): build, install,
+  configuration, architecture and caveats.
+- Documents the recommended `[animation.scratchpad] scale = 0.9` setting, and
+  why `match.is_scratchpad` combined with `default_floating*` cannot replace it.
 
-- 抓帧必须由合成器提供 `ext-image-copy-capture-v1`；协议不支持让合成器
-  直接缩放到缩略图尺寸，因此每次抓取都是原分辨率读回后再本地缩放。
-- 面板打开期间每 4 秒会重新抓取一次可见的窗口，长时间开着会有持续的开销；
-  关掉预览开关可完全消除。
+### Known limitations
 
-[0.1.0]: https://github.com/ccjjxl/scratchpads-umbriel/releases/tag/v0.1.0
+- Capture requires the compositor to provide `ext-image-copy-capture-v1`. The
+  protocol cannot scale on the compositor side, so every frame is read back at
+  native resolution and scaled locally.
+- While the panel is open, visible windows are re-captured every 4 seconds;
+  leaving it open for a long time has a continuous cost.
+- The panel only lists windows that currently live in a scratchpad. Ordinary
+  desktop windows never appear.
+
+[0.1.0]: https://github.com/ccjjxl/paddeck/releases/tag/v0.1.0

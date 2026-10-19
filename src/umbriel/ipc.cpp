@@ -13,7 +13,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace spm {
+namespace paddeck {
 
 namespace {
 
@@ -438,4 +438,4 @@ void UmbrielIpc::on_action_dispatched() {
     }
 }
 
-}  // namespace spm
+}  // namespace paddeck

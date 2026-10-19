@@ -11,7 +11,7 @@
 
 #include "model/types.hpp"
 
-namespace spm {
+namespace paddeck {
 
 class ConfigStore {
 public:
@@ -40,4 +40,4 @@ private:
     std::set<std::string> m_loaded_set;
 };
 
-}  // namespace spm
+}  // namespace paddeck

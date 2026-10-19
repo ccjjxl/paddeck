@@ -3,7 +3,7 @@
 
 #include <glib.h>
 
-namespace spm {
+namespace paddeck {
 
 namespace {
 
@@ -107,4 +107,4 @@ void from_json(const nlohmann::json& j, Theme& t) {
     }
 }
 
-}  // namespace spm
+}  // namespace paddeck

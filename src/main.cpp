@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// scratchpads-umbriel — a gtk4-layer-shell overlay for switching between
+// paddeck — a gtk4-layer-shell overlay for switching between
 // Umbriel scratchpads.
 #include <cstdio>
 #include <cstdlib>
@@ -14,7 +14,7 @@
 #include "model/config_store.hpp"
 #include "model/scratchpad.hpp"
 #include "model/types.hpp"
-#include "spm_config.hpp"
+#include "paddeck_config.hpp"
 #include "ui/overlay_window.hpp"
 #include "umbriel/ipc.hpp"
 
@@ -75,7 +75,7 @@ Options parse_options(int argc, char** argv) {
         } else if (argument == "--help" || argument == "-h") {
             options.show_help = true;
         } else if (argument == "--version" || argument == "-v") {
-            std::printf("scratchpads-umbriel %s\n", SPM_VERSION);
+            std::printf("paddeck %s\n", PADDECK_VERSION);
             std::exit(0);
         } else {
             options.argv.push_back(argv[i]);
@@ -85,16 +85,16 @@ Options parse_options(int argc, char** argv) {
     return options;
 }
 
-void print_scratchpads(const spm::ConfigStore& config) {
+void print_scratchpads(const paddeck::ConfigStore& config) {
     std::string error;
     nlohmann::json reply;
-    if (!spm::umbriel_query("windows", &reply, &error)) {
-        std::fprintf(stderr, "scratchpads-umbriel: %s\n", error.c_str());
+    if (!paddeck::umbriel_query("windows", &reply, &error)) {
+        std::fprintf(stderr, "paddeck: %s\n", error.c_str());
         std::exit(1);
     }
 
-    const auto windows = spm::parse_windows(reply);
-    const auto scratchpads = spm::build_scratchpads(config.defs(), windows);
+    const auto windows = paddeck::parse_windows(reply);
+    const auto scratchpads = paddeck::build_scratchpads(config.defs(), windows);
 
     std::printf("config: %s\n", config.primary_config().empty() ? "(none)"
                                                                 : config.primary_config().c_str());
@@ -127,29 +127,29 @@ int main(int argc, char** argv) {
     }
 
     if (options.dump) {
-        spm::ConfigStore config(options.config_path);
+        paddeck::ConfigStore config(options.config_path);
         std::string error;
         config.load(&error);
         if (!error.empty()) {
-            std::fprintf(stderr, "scratchpads-umbriel: %s\n", error.c_str());
+            std::fprintf(stderr, "paddeck: %s\n", error.c_str());
         }
         print_scratchpads(config);
         return 0;
     }
 
-    auto app = Gtk::Application::create("dev.noctalia.ScratchpadManager");
+    auto app = Gtk::Application::create("io.github.ccjjxl.Paddeck");
     if (!app) {
-        std::fprintf(stderr, "scratchpads-umbriel: cannot connect to a display\n");
+        std::fprintf(stderr, "paddeck: cannot connect to a display\n");
         return 1;
     }
 
-    spm::UmbrielIpc ipc;
-    spm::ConfigStore config(options.config_path);
+    paddeck::UmbrielIpc ipc;
+    paddeck::ConfigStore config(options.config_path);
 
-    std::unique_ptr<spm::OverlayWindow> window;
+    std::unique_ptr<paddeck::OverlayWindow> window;
     app->signal_activate().connect([&] {
         if (!window) {
-            window = std::make_unique<spm::OverlayWindow>(ipc, config, options.layer_shell);
+            window = std::make_unique<paddeck::OverlayWindow>(ipc, config, options.layer_shell);
             app->add_window(*window);
             ipc.start();
         }

@@ -16,7 +16,7 @@
 
 #include "model/types.hpp"
 
-namespace spm {
+namespace paddeck {
 
 /// Path of the Umbriel IPC socket, following UMBRIEL_SOCKET and XDG defaults.
 std::string umbriel_socket_path();
@@ -102,4 +102,4 @@ private:
     sigc::connection m_action_connection;
 };
 
-}  // namespace spm
+}  // namespace paddeck

@@ -6,8 +6,8 @@
 
 #include "model/types.hpp"
 
-namespace spm {
+namespace paddeck {
 
 std::string build_css(const Theme& theme);
 
-}  // namespace spm
+}  // namespace paddeck

@@ -7,7 +7,7 @@
 
 #include "model/types.hpp"
 
-namespace spm {
+namespace paddeck {
 
 /// A scratchpad as shown in the UI: configuration plus live membership.
 struct Scratchpad {
@@ -26,4 +26,4 @@ struct Scratchpad {
 std::vector<Scratchpad> build_scratchpads(const std::vector<ScratchpadDef>& defs,
                                           const std::vector<WindowInfo>& windows);
 
-}  // namespace spm
+}  // namespace paddeck

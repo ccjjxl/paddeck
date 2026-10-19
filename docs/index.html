@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paddeck manual — scratchpad switcher for Umbriel</title>
+<style>
+  :root {
+    --bg: #16121c;
+    --bg-soft: #1e1826;
+    --panel: #241d2e;
+    --panel-2: #2c2438;
+    --text: #ece7f4;
+    --muted: #a99fbb;
+    --border: #3b3149;
+    --accent: #7ee0c0;
+    --accent-2: #a99cff;
+    --warn: #ffcf7a;
+    --danger: #ff8d8d;
+    --radius: 12px;
+    --mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Noto Sans CJK SC", "Source Han Sans SC",
+            "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f7f5fa;
+      --bg-soft: #ffffff;
+      --panel: #ffffff;
+      --panel-2: #f1edf7;
+      --text: #241d2e;
+      --muted: #6c6280;
+      --border: #ddd6e8;
+      --accent: #1d9e7d;
+      --accent-2: #5f4bd8;
+      --warn: #b07a12;
+      --danger: #c0392b;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---------- header ---------- */
+  header.hero {
+    background:
+      radial-gradient(900px 340px at 12% -20%, rgba(169,156,255,.22), transparent 62%),
+      radial-gradient(760px 300px at 92% 0%, rgba(126,224,192,.16), transparent 58%),
+      var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    padding: 56px 0 40px;
+  }
+  header.hero .wrap { padding-bottom: 0; }
+  .kicker {
+    display: inline-block;
+    font-size: .78rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 12px;
+    margin-bottom: 18px;
+  }
+  h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.25; margin: 0 0 12px; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin: 0; max-width: 62ch; }
+
+  /* ---------- table of contents ---------- */
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 32px 0 8px;
+  }
+  nav.toc h2 { font-size: .82rem; letter-spacing: .1em; text-transform: uppercase;
+               color: var(--muted); margin: 0 0 10px; }
+  nav.toc ol { margin: 0; padding-left: 1.3em; columns: 2; column-gap: 32px; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a { color: var(--text); text-decoration: none; border-bottom: 1px solid transparent; }
+  nav.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ---------- body ---------- */
+  section { margin-top: 56px; scroll-margin-top: 20px; }
+  h2 { font-size: 1.4rem; margin: 0 0 6px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.06rem; margin: 28px 0 6px; color: var(--accent-2); }
+  @media (prefers-color-scheme: light) { h3 { color: var(--accent-2); } }
+  p { margin: 10px 0; }
+  a { color: var(--accent); }
+
+  ul, ol { padding-left: 1.35em; }
+  li { margin: 4px 0; }
+
+  code, kbd {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: .12em .42em;
+  }
+  kbd { border-bottom-width: 2px; }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .86rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 1em; }
+  .cmt { color: var(--muted); }
+
+  /* ---------- callouts ---------- */
+  .callout {
+    display: flex;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-2);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin: 18px 0;
+  }
+  .callout.tip { border-left-color: var(--accent); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout .ico { flex: 0 0 auto; font-size: 1.1rem; line-height: 1.6; }
+  .callout-body { flex: 1; min-width: 0; }
+  .callout p { margin: 4px 0; }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- card grid ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; margin: 20px 0; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .card h4 { margin: 0 0 6px; font-size: .98rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow-x: auto; margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel-2); font-size: .82rem; letter-spacing: .04em;
+       text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  tbody tr:hover { background: var(--panel); }
+  td:first-child { white-space: nowrap; }
+  td.k { white-space: nowrap; }
+
+  /* ---------- mockup ---------- */
+  figure { margin: 22px 0; }
+  figcaption { color: var(--muted); font-size: .86rem; margin-top: 10px; text-align: center; }
+  .mock {
+    background: rgba(0, 0, 0, .34);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px 20px;
+  }
+  @media (prefers-color-scheme: light) { .mock { background: #ded8ea; } }
+  .mock-card {
+    max-width: 660px; margin: 0 auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+  }
+  @media (prefers-color-scheme: light) { .mock-card { box-shadow: 0 10px 26px rgba(40,30,60,.16); } }
+  .mock-row { display: flex; align-items: center; gap: 8px; }
+  .mock-title { font-weight: 600; font-size: .95rem; }
+  .mock-sub { color: var(--muted); font-size: .78rem; }
+  .mock-dot { color: var(--accent); font-size: .72rem; margin-left: auto; }
+  .mock-sp { border: 1px solid var(--border); border-radius: 10px; padding: 10px;
+             background: var(--bg-soft); margin-top: 10px; }
+  .mock-sp.selected { border-color: var(--accent-2); }
+  .mock-name { font-size: .9rem; }
+  .mock-sp.selected .mock-name { color: var(--accent-2); }
+  .mock-sphead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: .84rem; }
+  .mock-sphead .mock-badge { margin-left: auto; }
+  .mock-badge {
+    font-size: .68rem; border-radius: 999px; padding: 1px 8px; font-weight: 600;
+    background: rgba(128,128,128,.22); color: var(--muted);
+  }
+  .mock-badge.on { background: var(--accent-2); color: #16121c; }
+  @media (prefers-color-scheme: light) { .mock-badge.on { color: #fff; } }
+  .mock-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .mock-tile { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--panel-2); }
+  .mock-shot {
+    height: 58px;
+    background:
+      repeating-linear-gradient(90deg, rgba(126,224,192,.20) 0 6px, transparent 6px 13px),
+      linear-gradient(150deg, #2b2438, #191320);
+  }
+  @media (prefers-color-scheme: light) {
+    .mock-shot { background:
+      repeating-linear-gradient(90deg, rgba(29,158,125,.22) 0 6px, transparent 6px 13px),
+      linear-gradient(150deg, #e6e0f0, #cfc7e0); }
+  }
+  .mock-bar { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: .72rem;
+              border-top: 1px solid var(--border); }
+  .mock-bar .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mock-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+               color: var(--muted); font-size: .78rem; display: flex; gap: 14px; flex-wrap: wrap; }
+  .mock-keys { font-family: var(--mono); font-size: .72rem; letter-spacing: .01em; }
+  .mock-keys b { color: var(--text); font-weight: 600; }
+
+  .pin {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.35em; height: 1.35em; border-radius: 50%;
+    background: var(--accent-2); color: #16121c;
+    font-size: .68rem; font-weight: 700; vertical-align: .18em;
+  }
+  @media (prefers-color-scheme: light) { .pin { color: #fff; } }
+  .legend { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 6px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); font-size: .9rem; }
+  .legend li { display: flex; gap: 9px; align-items: flex-start; }
+  .legend .pin { flex: 0 0 auto; margin-top: .3em; }
+
+  /* ---------- FAQ ---------- */
+  details {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    margin: 10px 0;
+  }
+  details[open] { padding-bottom: 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  summary::marker { color: var(--accent); }
+  details p, details ul { margin: 10px 0 0; color: var(--muted); }
+  details code { color: var(--text); }
+
+  footer {
+    margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: .86rem;
+  }
+
+  @media print {
+    :root { --bg: #fff; --bg-soft: #fff; --panel: #fff; --panel-2: #f4f4f6;
+            --text: #111; --muted: #555; --border: #ccc; --accent: #0a6; --accent-2: #44a; }
+    header.hero { background: none; }
+    .mock { background: #eee; }
+    details { break-inside: avoid; }
+    details > summary { list-style: none; }
+    section { break-inside: avoid-page; }
+  }
+
+  /* ---------- language switch ---------- */
+  .lang { display: flex; gap: 6px; justify-content: flex-end; align-items: center;
+          font-size: .82rem; margin-bottom: 12px; }
+  .lang a, .lang span { padding: 2px 10px; border-radius: 999px;
+          border: 1px solid var(--border); text-decoration: none; color: var(--muted); }
+  .lang a:hover { color: var(--accent); border-color: var(--accent); }
+  .lang .active { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="lang"><span class="active">English</span><a href="zh.html">简体中文</a></div>
+    <span class="kicker">Umbriel · User manual</span>
+    <h1>paddeck — scratchpad switcher</h1>
+    <p class="lede">
+      A graphical way to <b>switch</b> Umbriel scratchpads: see which windows
+      each one holds, look at their <b>real contents</b>, then show, hide or jump
+      to them with a keystroke. Open, act, close — no mouse required.
+    </p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#what">What it can do for you</a></li>
+      <li><a href="#start">Getting started</a></li>
+      <li><a href="#tour">A tour of the interface</a></li>
+      <li><a href="#keys">Keyboard reference</a></li>
+      <li><a href="#preview">Window previews (thumbnails)</a></li>
+      <li><a href="#config">Where scratchpads come from</a></li>
+      <li><a href="#tips">Tips</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="#cli">Advanced: command line</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- 1 -->
+    <section id="what">
+      <h2>1. What it can do for you</h2>
+      <p>
+        Umbriel's scratchpad feature lets you tuck windows away and bring them
+        back when needed. But normally you have to rely on memory: what exactly
+        is in each scratchpad?
+      </p>
+      <p>This tool exists for that — a panel built purely for <b>switching</b>:</p>
+
+      <div class="cards">
+        <div class="card">
+          <h4>👀 See what's inside</h4>
+          <p>Every window gets a live thumbnail. <b>Even when a window is tucked away in a scratchpad and invisible on screen, you can see its contents.</b></p>
+        </div>
+        <div class="card">
+          <h4>⌨️ Keyboard only</h4>
+          <p>Move up and down, toggle with space, jump with enter. Your hands never leave the keyboard.</p>
+        </div>
+        <div class="card">
+          <h4>🪟 Switch a whole scratchpad</h4>
+          <p>Bring all of a scratchpad's windows on screen at once, or tuck them all away. Their positions are remembered.</p>
+        </div>
+        <div class="card">
+          <h4>🔒 Read-only</h4>
+          <p>It reads your Umbriel configuration and never modifies any of your files.</p>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="ico">💡</span>
+        <p>
+          <b>The most useful part:</b> windows in a scratchpad are invisible in
+          normal use. With thumbnails, the terminals, browsers and editors you
+          parked there are all visible at a glance.
+        </p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="start">
+      <h2>2. Getting started</h2>
+
+      <h3>Step 1: check that it is installed</h3>
+      <p>Run the following in a terminal. If it prints a version number, you are good to go:</p>
+      <pre><code>paddeck --version</code></pre>
+      <p>If you get “command not found”, ask whoever installed it (or do it yourself) to run:</p>
+      <pre><code>meson setup build
+ninja -C build
+sudo ninja -C build install</code></pre>
+
+      <h3>Step 2: bind a shortcut <span class="pin">★</span></h3>
+      <p>
+        This is the only required step. Open Umbriel's keybind configuration,
+        <code>~/.config/umbriel/binds.toml</code>, and add one line:
+      </p>
+      <pre><code>[keybinds]
+"Mod+S" = "spawn:paddeck"</code></pre>
+      <p>
+        You can replace <code>"Mod+S"</code> with any combination you like.
+        After saving, let Umbriel reload its configuration (in most cases
+        pressing a key or reloading the config is enough).
+      </p>
+
+      <h3>Step 3: open the panel</h3>
+      <p>
+        Press the shortcut you just set: a translucent backdrop and a panel
+        appear in the centre of the screen. <b>Press the same shortcut again</b>
+        to hide it.
+      </p>
+      <p>There are two more ways to close the panel:</p>
+      <ul>
+        <li>Press <kbd>Esc</kbd>;</li>
+        <li>click the dark area outside the panel. (Clicks inside the panel do not close it.)</li>
+      </ul>
+
+      <div class="callout">
+        <span class="ico">ℹ️</span>
+        <p>
+          While the panel is open it captures the keyboard, so your keystrokes
+          never leak to windows behind it. Once it closes, the keyboard returns
+          to the previously focused window immediately.
+        </p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="tour">
+      <h2>3. A tour of the interface</h2>
+      <figure>
+        <div class="mock">
+          <div class="mock-card">
+            <div class="mock-row">
+              <span class="mock-title">Scratchpads <span class="pin">1</span></span>
+              <span class="mock-dot">● connected</span>
+            </div>
+
+            <div class="mock-sp selected">
+              <div class="mock-sphead">
+                <b class="mock-name">work <span class="pin">2</span></b>
+                <span class="mock-badge on">visible <span class="pin">4</span></span>
+              </div>
+              <div class="mock-grid">
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">OC | C++ GTK4 …</span></div>
+                </div>
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">foot</span></div>
+                </div>
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">foot</span></div>
+                </div>
+              </div>
+              <div class="mock-sub" style="margin-top:8px"><span class="pin">3</span> each tile shows the window's real contents; this card is the current selection</div>
+            </div>
+
+            <div class="mock-sp">
+              <div class="mock-sphead">
+                <b class="mock-name">media</b>
+                <span class="mock-badge">empty</span>
+              </div>
+              <div class="mock-sub">Empty — toggling it runs: spotify</div>
+            </div>
+
+            <div class="mock-sp">
+              <div class="mock-sphead">
+                <b class="mock-name">notes</b>
+                <span class="mock-badge">hidden</span>
+              </div>
+              <div class="mock-grid">
+                <div class="mock-tile">
+                  <div class="mock-shot"></div>
+                  <div class="mock-bar"><span class="t">notion — quick notes</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mock-foot">
+              <span class="mock-keys"><b>j/k</b> select · <b>space</b> toggle · <b>←/→</b> member · <b>enter</b> focus · <b>1-9</b> jump · <b>esc</b> close <span class="pin">5</span></span>
+            </div>
+          </div>
+        </div>
+        <figcaption>Panel mockup (the real thing follows your Umbriel theme colours)</figcaption>
+      </figure>
+
+      <ul class="legend">
+        <li><span class="pin">1</span><span><b>Title bar</b>: the panel name, with the connection status on the right.</span></li>
+        <li><span class="pin">2</span><span><b>Selected scratchpad</b>: its border and name light up. Every key acts on it, so make sure you know which one it is.</span></li>
+        <li><span class="pin">3</span><span><b>Window preview</b>: a live thumbnail of the window contents, with the title and app on the line below.</span></li>
+        <li><span class="pin">4</span><span><b>Status badge</b>: <b>visible</b> / <b>partly visible</b> / <b>hidden</b> / <b>empty</b> — the scratchpad's current state at a glance.</span></li>
+        <li><span class="pin">5</span><span><b>Key legend</b>: always visible, so you can glance down whenever you forget a key.</span></li>
+      </ul>
+
+      <h3>How to read the status badges</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Badge</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><b>visible</b></td><td>All windows in this scratchpad are on screen.</td></tr>
+            <tr><td><b>partly visible</b></td><td>Only some members are on screen (for example you revealed one of them with <kbd>h</kbd> <kbd>l</kbd>).</td></tr>
+            <tr><td><b>hidden</b></td><td>All windows are tucked into the scratchpad; none are on screen.</td></tr>
+            <tr><td><b>empty</b></td><td>No windows yet. If the config specifies a command to run when empty, toggling it launches that program.</td></tr>
+            <tr><td><b>implicit</b></td><td>This is Umbriel's default scratchpad, not one you created.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Individual window cards may also show a small badge in their top-left corner:</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Badge</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><b>focused</b></td><td>This is the window currently in use.</td></tr>
+            <tr><td><b>visible</b></td><td>The window is on screen (not tucked away).</td></tr>
+            <tr><td><b>urgent</b></td><td>The window is requesting attention (for example a terminal bell or a new message).</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="keys">
+      <h2>4. Keyboard reference</h2>
+      <p>
+        Once the panel is open, the keyboard belongs to it. Every action applies
+        to the <b>currently selected scratchpad</b>; use <kbd>j</kbd> <kbd>k</kbd>
+        to change the selection.
+      </p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="k"><kbd>j</kbd> / <kbd>k</kbd></td>
+              <td>Move down / up one scratchpad. Same as <kbd>↓</kbd> <kbd>↑</kbd> and <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd>. Wraps around at either end.</td>
+            </tr>
+            <tr>
+              <td class="k"><kbd>Space</kbd></td>
+              <td><b>Toggle</b> the selected scratchpad: reveal it if hidden, tuck it away if visible. All of its windows move together and their original workspace positions are remembered.</td>
+            </tr>
+            <tr>
+              <td class="k"><kbd>h</kbd> / <kbd>l</kbd></td>
+              <td>Reveal only the <b>previous / next member window</b> of the selected scratchpad. Same as <kbd>←</kbd> <kbd>→</kbd>. Useful when there are many windows and you do not want them all at once.</td>
+            </tr>
+            <tr>
+              <td class="k"><kbd>Enter</kbd></td>
+              <td><b>Jump</b> to a window in the selected scratchpad (preferring the one in use) and close the panel, so you can get straight to work.</td>
+            </tr>
+            <tr>
+              <td class="k"><kbd>1</kbd> … <kbd>9</kbd></td>
+              <td>Jump straight to the n-th scratchpad and toggle it immediately — no need to move the selection first.</td>
+            </tr>
+            <tr>
+              <td class="k"><kbd>Home</kbd> / <kbd>End</kbd></td>
+              <td>Jump to the first / last scratchpad.</td>
+            </tr>
+            <tr>
+              <td class="k"><kbd>Esc</kbd></td>
+              <td>Close the panel.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="ico">💡</span>
+        <p>
+          <b>The three keys that cover most cases:</b>
+          <kbd>j</kbd> <kbd>k</kbd> to find the target, <kbd>Space</kbd> to
+          show / hide it, <kbd>Esc</kbd> to leave.
+          <kbd>Enter</kbd> means “switch to it and close the panel”, which is
+          what you want when you are about to use the window right away.
+        </p>
+      </div>
+
+      <h3>Prefer the mouse?</h3>
+      <ul>
+        <li>Click a scratchpad card — select it (same as <kbd>j</kbd> <kbd>k</kbd>).</li>
+        <li>Click a window preview — focus that window and close the panel (same as <kbd>Enter</kbd>).</li>
+        <li>Click the dark area outside the panel — close the panel.</li>
+      </ul>
+    </section>
+
+    <!-- 5 -->
+    <section id="preview">
+      <h2>5. Window previews (thumbnails)</h2>
+      <p>
+        Every window in the panel is a thumbnail whose image is <b>taken live
+        from the compositor</b> — not an icon, not a screenshot file.
+      </p>
+
+      <div class="callout tip">
+        <span class="ico">✨</span>
+        <p>
+          <b>Windows tucked into a scratchpad can be previewed too.</b>
+          This is the biggest difference from an ordinary taskbar: those
+          “invisible” windows are no longer a black box.
+        </p>
+      </div>
+
+      <h3>A few notes about the previews</h3>
+      <ul>
+        <li><b>Refresh rate</b>: while the panel is open the image is updated roughly every 4 seconds, so it stays recent.</li>
+        <li><b>Power</b>: capture stops the moment the panel closes, using no resources at all.</li>
+        <li><b>Aspect ratio</b>: windows of different shapes are scaled down proportionally and centred, which may leave blank space around them. That is normal (nothing is cropped).</li>
+        <li><b>Right after opening</b>: the first frame takes a second or two; during that time the tile shows the app's initials (for example <code>GC</code>), then turns into the image.</li>
+        <li><b>When capture is unavailable</b>: the tile keeps showing the initials. This affects no functionality — switching and focusing still work.</li>
+      </ul>
+    </section>
+
+    <!-- 6 -->
+    <section id="config">
+      <h2>6. Where scratchpads come from</h2>
+      <p>
+        Scratchpads live in Umbriel's own configuration, usually
+        <code>~/.config/umbriel/config.toml</code>. This tool only <b>reads</b>
+        it; there is no create / delete / edit entry point in the UI — to add or
+        remove one, edit the configuration file.
+      </p>
+      <p>A minimal example:</p>
+      <pre><code><span class="cmt"># ~/.config/umbriel/config.toml</span>
+[[scratchpad]]
+name = "work"
+
+[[scratchpad]]
+name = "media"
+spawn_when_empty = "spotify"   <span class="cmt"># toggling it while empty launches this program</span>
+
+[[scratchpad]]
+name = "notes"</code></pre>
+      <p>
+        <code>name</code> is what the panel displays.
+        <code>spawn_when_empty</code> is optional: when set, toggling this
+        scratchpad <b>while it is still empty</b> launches the given command —
+        a handy one-key way to summon a frequently used program.
+      </p>
+
+      <div class="callout warn">
+        <span class="ico">⚠️</span>
+        <p>
+          <b>Note: as soon as a named scratchpad exists, Umbriel removes the implicit <code>default</code> scratchpad.</b>
+          Windows that were parked in it return to their saved positions (nothing is lost).
+        </p>
+      </div>
+
+      <p>
+        The configuration can also be split across files and pulled in with
+        <code>[include]</code>; the panel reads those too (it does not care
+        about comments or formatting).
+      </p>
+      <pre><code>[include]
+files = ["binds.toml", "scratchpads.toml"]</code></pre>
+
+      <h3>Recommended: make scratchpad windows a consistent size <span class="pin">★</span></h3>
+      <p>
+        Consider adding this snippet. It makes <b>any</b> window that enters a
+        scratchpad resize to 90% × 90% of the output's usable area (bars and
+        other exclusive zones already excluded) and centre itself, regardless
+        of the application — no per-application rules needed:
+      </p>
+      <pre><code><span class="cmt"># ~/.config/umbriel/config.toml</span>
+[animation.scratchpad]
+scale = 0.9        <span class="cmt"># 0.1–1.0; 0 keeps the window's original size and position</span></code></pre>
+      <p>A few things to keep in mind:</p>
+      <ul>
+        <li>Windows entering a scratchpad <b>are made floating automatically</b>,
+            so <code>default_floating = true</code> is not needed.</li>
+        <li>Precedence is <code>fullscreen</code> &gt; <code>maximize</code> &gt; <code>scale</code>;
+            leave the first two at <code>false</code> (their default) for <code>scale</code> to apply.</li>
+        <li>There is a 100px floor. The value is computed once, when a window
+            <b>enters</b> the scratchpad; after changing the configuration,
+            windows already in a scratchpad must be taken out and put back in to
+            pick up the new size.</li>
+      </ul>
+
+      <div class="callout warn">
+        <span class="ico">⚠️</span>
+        <div class="callout-body">
+          <p>
+            <b>Do not</b> try to achieve the same with a window rule — the
+            following <b>does not work</b>:
+          </p>
+          <pre><code><span class="cmt"># ✗ invalid</span>
+[[window_rule]]
+match.is_scratchpad = true
+default_floating = true
+default_floating_size = { width = 0.9, height = 0.9 }</code></pre>
+          <p>
+            Because <code>default_floating</code> / <code>default_floating_size</code>
+            are <b>open-time settings</b>: they are resolved once when the window
+            opens, and at that moment it is not in a scratchpad yet, so
+            <code>match.is_scratchpad</code> can never match.
+          </p>
+          <p>
+            <code>match.is_scratchpad</code> only applies to <b>runtime</b>
+            properties such as <code>opacity</code>, <code>blur</code> and
+            <code>border_color_focused</code>:
+          </p>
+          <pre><code><span class="cmt"># ✓ valid: every window in a scratchpad becomes slightly translucent</span>
+[[window_rule]]
+match.is_scratchpad = true
+opacity = 0.9</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="tips">
+      <h2>7. Tips</h2>
+      <ul>
+        <li>
+          <b>Use it as a scratchpad monitor.</b> Open it with <code>Mod+S</code>,
+          glance, press <kbd>Esc</kbd> — two seconds to confirm that the windows
+          you tucked away are still there.
+        </li>
+        <li>
+          <b>Use the number keys for one-step access.</b> Remember the index of
+          the scratchpads you use most, then press <kbd>1</kbd>–<kbd>9</kbd>
+          right after opening to toggle them without selecting first.
+        </li>
+        <li>
+          <b>Reveal members one by one when there are many.</b>
+          <kbd>h</kbd> <kbd>l</kbd> reveals a single member, which is tidier than
+          bringing out the whole group and picking.
+        </li>
+        <li>
+          <b>Jump straight there once you have found it.</b> <kbd>Enter</kbd>
+          focuses the window and closes the panel — no need for <kbd>Esc</kbd>.
+        </li>
+        <li>
+          <b>The panel follows your theme.</b> Colours and corner radius come
+          from your current Umbriel theme.
+        </li>
+        <li>
+          <b>Give scratchpad windows a consistent size.</b> Add
+          <code>[animation.scratchpad]</code> with <code>scale = 0.9</code> to
+          your Umbriel configuration and any window entering a scratchpad
+          becomes 90% × 90% and centred; see
+          <a href="#config">section 6</a>.
+        </li>
+      </ul>
+
+      <div class="callout">
+        <span class="ico">ℹ️</span>
+        <p>
+          No restart needed after changing the configuration: the panel re-reads
+          it every time it opens.
+        </p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="faq">
+      <h2>8. FAQ</h2>
+
+      <details>
+        <summary>I press the key and nothing happens — the panel does not appear?</summary>
+        <p>Check, in order:</p>
+        <ul>
+          <li>Whether the shortcut is correct (the <code>[keybinds]</code> section in <code>~/.config/umbriel/binds.toml</code>).</li>
+          <li>Whether Umbriel reloaded its configuration after the change.</li>
+          <li>Whether running <code>paddeck</code> directly in a terminal opens the panel.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Tiles keep showing initials instead of images?</summary>
+        <p>
+          This means the compositor on this machine does not provide the
+          per-window capture protocols, or the window has not been rendered yet.
+          The panel degrades to the “initials” style, and
+          <b>switching and focusing are unaffected</b>.
+          If the protocols are missing entirely, the bottom of the panel shows
+          “Window previews are unavailable on this compositor.”.
+        </p>
+      </details>
+
+      <details>
+        <summary>A window is missing from the panel?</summary>
+        <p>
+          The panel only lists <b>windows that live in a scratchpad</b>.
+          Ordinary windows on the desktop do not appear here — that is exactly
+          what a scratchpad switcher is for.
+        </p>
+      </details>
+
+      <details>
+        <summary>After pressing <kbd>Space</kbd>, several windows appeared at once?</summary>
+        <p>
+          That is expected: showing a scratchpad reveals all of its members
+          together. If you want them one at a time, use <kbd>h</kbd>
+          <kbd>l</kbd>.
+        </p>
+      </details>
+
+      <details>
+        <summary>I want to create a scratchpad, but there is no entry point in the UI?</summary>
+        <p>
+          That is intentional: this tool only <b>switches</b> and does not touch
+          the configuration. Add a <code>[[scratchpad]]</code> block to
+          <code>~/.config/umbriel/config.toml</code> as shown in section 6, then
+          open the panel and it will be there.
+        </p>
+      </details>
+
+      <details>
+        <summary>Will it damage my configuration file?</summary>
+        <p>
+          No. It opens the configuration <b>read-only</b> and writes no files
+          while running — not even temporary ones.
+        </p>
+      </details>
+
+      <details>
+        <summary>The panel swallows the keyboard while it is open?</summary>
+        <p>
+          Yes, by design: that way your keystrokes do not accidentally reach the
+          windows behind it. After you close it with <kbd>Esc</kbd> or a click
+          outside, the keyboard returns to the previous window immediately.
+        </p>
+      </details>
+
+      <details>
+        <summary>The top right shows <code>○ reconnecting…</code>?</summary>
+        <p>
+          Umbriel is not running, or the communication socket is temporarily
+          unavailable. The panel retries every second and switches back to
+          <code>● connected</code> once it recovers — no restart needed.
+        </p>
+      </details>
+
+      <details>
+        <summary>A red message appeared at the bottom?</summary>
+        <p>
+          The last action failed and the message explains why (for example a
+          wrong scratchpad name). A failure does not stop you from using the
+          panel.
+        </p>
+      </details>
+    </section>
+
+    <!-- 9 -->
+    <section id="cli">
+      <h2>9. Advanced: command line</h2>
+      <p>Day-to-day use does not need the command line, but it is useful in scripts and for troubleshooting.</p>
+      <pre><code>paddeck [options]
+
+  -c, --config &lt;path&gt;   use the given Umbriel config instead of the default search
+      --socket &lt;path&gt;   override the IPC socket (default: $UMBRIEL_SOCKET)
+      --window          open a normal window instead of the full-screen overlay
+      --dump            print every scratchpad and its windows as text, then exit
+  -h, --help            show help
+  -v, --version         show version</code></pre>
+
+      <p><b>See the list without opening the UI:</b></p>
+      <pre><code>$ paddeck --dump
+config: /home/me/.config/umbriel/config.toml
+loaded: 6 file(s)
+
+[default] (implicit)  1 window(s), 0 visible
+    hidden   kitty                ~
+
+[work]  2 window(s), 2 visible
+    visible  foot                 logs
+    focused  kitty                editor</code></pre>
+      <p>
+        The <code>visible</code> / <code>focused</code> / <code>hidden</code>
+        marker in front of each window shows whether it is currently on screen
+        or tucked away.
+      </p>
+
+      <div class="callout">
+        <span class="ico">ℹ️</span>
+        <p>
+          <code>--window</code> opens a normal window instead of the overlay,
+          which is handy for trying it on another compositor or for debugging.
+        </p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="trouble">
+      <h2>10. Troubleshooting</h2>
+      <ol>
+        <li>
+          <b>Check the bottom of the panel first.</b> When an action fails, the
+          reason is shown right there.
+        </li>
+        <li>
+          <b>Use <code>--dump</code> to see the raw data.</b>
+          <code>paddeck --dump</code> prints every scratchpad and window the
+          tool sees, which makes it easy to tell whether the configuration took
+          effect.
+        </li>
+        <li>
+          <b>No previews?</b> That is a normal degradation and does not affect
+          functionality. To confirm, run <code>paddeck</code> directly in a
+          terminal and watch its output.
+        </li>
+        <li>
+          <b>A scratchpad is missing from the panel?</b> Check that
+          <code>config.toml</code> contains a <code>[[scratchpad]]</code> block,
+          that <code>name</code> is spelled correctly, and that the panel was
+          opened after the configuration change.
+        </li>
+        <li>
+          <b>The panel says “No scratchpads are configured.”?</b>
+          The configuration has no named scratchpad and no windows are currently
+          tucked away. Add a <code>[[scratchpad]]</code> as shown in section 6.
+        </li>
+      </ol>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      paddeck — scratchpad switcher for Umbriel · version 0.1.0 ·
+      this page is offline documentation; open it directly in a browser, no
+      network required.
+    </p>
+  </footer>
+</div>
+
+</body>
+
+</html>

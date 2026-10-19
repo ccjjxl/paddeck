@@ -10,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace spm {
+namespace paddeck {
 
 namespace {
 
@@ -194,4 +194,4 @@ void ConfigStore::parse_file(const std::string& path, std::string* error) {
     collect((*include)["optional"]["files"]);
 }
 
-}  // namespace spm
+}  // namespace paddeck

@@ -20,7 +20,7 @@
 #include <gdkmm/pixbuf.h>
 #include <glibmm/refptr.h>
 
-namespace spm {
+namespace paddeck {
 
 /// One captured window image, already scaled down for display.
 struct Thumbnail {
@@ -62,4 +62,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-}  // namespace spm
+}  // namespace paddeck

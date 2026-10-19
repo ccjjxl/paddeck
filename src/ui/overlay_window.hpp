@@ -31,7 +31,7 @@
 #include "umbriel/capture.hpp"
 #include "umbriel/ipc.hpp"
 
-namespace spm {
+namespace paddeck {
 
 class OverlayWindow : public Gtk::ApplicationWindow {
 public:
@@ -108,4 +108,4 @@ private:
     Gtk::ScrolledWindow* m_scroll = nullptr;
 };
 
-}  // namespace spm
+}  // namespace paddeck

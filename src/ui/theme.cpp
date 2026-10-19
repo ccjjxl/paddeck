@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <sstream>
 
-namespace spm {
+namespace paddeck {
 
 namespace {
 
@@ -82,10 +82,10 @@ std::string build_css(const Theme& t) {
     const std::string selected_edge = css_color(t.accent_secondary);
 
     std::ostringstream css;
-    css << "window.spm-window, .spm-backdrop { background: transparent; }\n";
-    css << ".spm-backdrop { background-color: rgba(0,0,0,0.45); }\n";
+    css << "window.pd-window, .pd-backdrop { background: transparent; }\n";
+    css << ".pd-backdrop { background-color: rgba(0,0,0,0.45); }\n";
 
-    css << ".spm-card {"
+    css << ".pd-card {"
         << " background-color: " << css_color(t.background) << ";"
         << " border: 1px solid " << css_color(t.border_unfocused, 1.6) << ";"
         << " border-radius: " << px(radius) << ";"
@@ -93,63 +93,63 @@ std::string build_css(const Theme& t) {
         << " box-shadow: 0 12px 40px " << css_color(t.shadow) << ";"
         << "}\n";
 
-    css << ".spm-title { color: " << css_color(t.text_primary)
+    css << ".pd-title { color: " << css_color(t.text_primary)
         << "; font-weight: bold; font-size: 1.2em; }\n";
-    css << ".spm-subtle { color: " << css_color(t.text_muted) << "; font-size: 0.86em; }\n";
-    css << ".spm-mono { font-family: monospace; font-size: 0.82em; }\n";
-    css << ".spm-hint { color: " << css_color(t.text_muted, 0.8)
+    css << ".pd-subtle { color: " << css_color(t.text_muted) << "; font-size: 0.86em; }\n";
+    css << ".pd-mono { font-family: monospace; font-size: 0.82em; }\n";
+    css << ".pd-hint { color: " << css_color(t.text_muted, 0.8)
         << "; font-size: 0.78em; font-family: monospace; }\n";
 
     // The selected card is the whole interface: everything the keys do acts on
     // it, so it gets a green border and a slightly brighter surface. The
     // border stays 1px in both states, so moving the selection never shifts
     // the tiles.
-    css << ".spm-sp { background-color: " << css_color(t.text_primary, 0.045)
+    css << ".pd-sp { background-color: " << css_color(t.text_primary, 0.045)
         << "; border: 1px solid " << css_color(t.border_unfocused, 1.4) << ";"
         << " border-radius: " << px(inner) << "; padding: 10px; }\n";
-    css << ".spm-sp:focus, .spm-sp:focus-visible { outline: none; }\n";
-    css << ".spm-sp-selected { background-color: " << css_color(t.text_primary, 0.075)
+    css << ".pd-sp:focus, .pd-sp:focus-visible { outline: none; }\n";
+    css << ".pd-sp-selected { background-color: " << css_color(t.text_primary, 0.075)
         << "; border-color: " << selected_edge << "; }\n";
-    css << ".spm-sp-name { color: " << css_color(t.text_primary)
+    css << ".pd-sp-name { color: " << css_color(t.text_primary)
         << "; font-weight: bold; font-size: 1.0em; }\n";
-    css << ".spm-sp-selected .spm-sp-name { color: " << selected_edge << "; }\n";
+    css << ".pd-sp-selected .pd-sp-name { color: " << selected_edge << "; }\n";
 
-    css << ".spm-badge { border-radius: 999px; padding: 0px 8px; font-size: 0.76em;"
+    css << ".pd-badge { border-radius: 999px; padding: 0px 8px; font-size: 0.76em;"
         << " font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.45); }\n";
-    css << ".spm-badge-on { background-color: " << css_color(t.accent_secondary);
+    css << ".pd-badge-on { background-color: " << css_color(t.accent_secondary);
     css << "; color: " << css_color(t.background) << "; }\n";
-    css << ".spm-badge-off { background-color: " << css_color(t.text_muted, 0.16);
+    css << ".pd-badge-off { background-color: " << css_color(t.text_muted, 0.16);
     css << "; color: " << css_color(t.text_muted) << "; }\n";
-    css << ".spm-badge-urgent { background-color: " << css_color(t.warning);
+    css << ".pd-badge-urgent { background-color: " << css_color(t.warning);
     css << "; color: " << css_color(t.background) << "; }\n";
 
     // Window preview grid: one tile per window, showing the captured image.
-    css << ".spm-tile { background-color: " << css_color(t.text_primary, 0.05)
+    css << ".pd-tile { background-color: " << css_color(t.text_primary, 0.05)
         << "; border: 1px solid " << css_color(t.border_unfocused, 1.5) << ";"
         << " border-radius: " << px(inner) << "; }\n";
-    css << ".spm-tile-visible { border-color: " << css_color(t.accent_primary, 0.5) << "; }\n";
-    css << ".spm-tile-focused { border-color: " << css_color(t.accent_secondary, 0.9) << "; }\n";
-    css << ".spm-tile-urgent { border-color: " << css_color(t.warning, 0.9) << "; }\n";
-    css << ".spm-tile-shot { background-color: rgba(0,0,0,0.30); border-radius: "
+    css << ".pd-tile-visible { border-color: " << css_color(t.accent_primary, 0.5) << "; }\n";
+    css << ".pd-tile-focused { border-color: " << css_color(t.accent_secondary, 0.9) << "; }\n";
+    css << ".pd-tile-urgent { border-color: " << css_color(t.warning, 0.9) << "; }\n";
+    css << ".pd-tile-shot { background-color: rgba(0,0,0,0.30); border-radius: "
         << px(inner) << "; }\n";
-    css << ".spm-tile-monogram { color: " << css_color(t.text_primary, 0.30)
+    css << ".pd-tile-monogram { color: " << css_color(t.text_primary, 0.30)
         << "; font-weight: bold; font-size: 2.6em; }\n";
-    css << ".spm-tile-bar { background-color: " << css_color(t.background, 0.94)
+    css << ".pd-tile-bar { background-color: " << css_color(t.background, 0.94)
         << "; padding: 5px 8px; border-bottom-left-radius: " << px(inner)
         << "; border-bottom-right-radius: " << px(inner) << "; }\n";
-    css << ".spm-tile-title { color: " << css_color(t.text_primary) << "; font-size: 0.86em; }\n";
-    css << ".spm-tile-meta { color: " << css_color(t.text_muted) << "; font-size: 0.72em; }\n";
+    css << ".pd-tile-title { color: " << css_color(t.text_primary) << "; font-size: 0.86em; }\n";
+    css << ".pd-tile-meta { color: " << css_color(t.text_muted) << "; font-size: 0.72em; }\n";
 
-    css << ".spm-error { color: " << css_color(t.error) << "; }\n";
-    css << ".spm-ok { color: " << css_color(t.accent_secondary) << "; }\n";
+    css << ".pd-error { color: " << css_color(t.error) << "; }\n";
+    css << ".pd-ok { color: " << css_color(t.accent_secondary) << "; }\n";
 
-    css << ".spm-empty { color: " << css_color(t.text_muted)
+    css << ".pd-empty { color: " << css_color(t.text_muted)
         << "; font-style: italic; font-size: 0.86em; padding: 2px 4px; }\n";
 
-    css << "scrolledwindow.spm-scroll { background: none; border: none; }\n";
-    css << "scrolledwindow.spm-scroll > viewport { background: none; }\n";
+    css << "scrolledwindow.pd-scroll { background: none; border: none; }\n";
+    css << "scrolledwindow.pd-scroll > viewport { background: none; }\n";
 
     return css.str();
 }
 
-}  // namespace spm
+}  // namespace paddeck

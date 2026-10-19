@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <unordered_map>
 
-namespace spm {
+namespace paddeck {
 
 int Scratchpad::visible_count() const {
     return static_cast<int>(std::count_if(
@@ -71,4 +71,4 @@ std::vector<Scratchpad> build_scratchpads(const std::vector<ScratchpadDef>& defs
     return result;
 }
 
-}  // namespace spm
+}  // namespace paddeck

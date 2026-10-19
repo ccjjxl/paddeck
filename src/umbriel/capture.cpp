@@ -24,7 +24,7 @@
 #include "ext-image-capture-source-v1-client.h"
 #include "ext-image-copy-capture-v1-client.h"
 
-namespace spm {
+namespace paddeck {
 
 namespace {
 
@@ -404,7 +404,7 @@ struct CaptureClient::Impl {
         }
         shm_size = 0;
 
-        const int fd = memfd_create("scratchpads-umbriel-capture", MFD_CLOEXEC);
+        const int fd = memfd_create("paddeck-capture", MFD_CLOEXEC);
         if (fd < 0) {
             return false;
         }
@@ -736,4 +736,4 @@ void CaptureClient::stop() {
     }
 }
 
-}  // namespace spm
+}  // namespace paddeck

@@ -1,184 +1,220 @@
-# scratchpads-umbriel
+# paddeck
 
-Umbriel 的 **scratchpad（暂存区）切换器**。用 C++20 + GTK4 + `gtk4-layer-shell`
-实现，以全屏覆盖层（overlay）的形式列出所有 scratchpad 及其窗口，
-**全部用键盘操作**：移动选中项、显示 / 隐藏整个暂存区、逐个成员窗口切换、跳转到窗口。
+**English** · [简体中文](README.zh-CN.md)
 
-> 面向普通用户的使用手册见 **[`docs/manual.html`](docs/manual.html)**（离线 HTML，
-> 直接用浏览器打开即可，无需网络）。本 README 面向开发者与维护者。
-> 版本变更见 [`CHANGELOG.md`](CHANGELOG.md)。
+A keyboard-driven **scratchpad switcher** for the
+[Umbriel](https://github.com/noctalia-dev/umbriel) Wayland compositor, written in
+C++20 with GTK4 and `gtk4-layer-shell`.
 
-界面只有一件事：**选中项 + 操作**。每个 scratchpad 的窗口以缩略图网格呈现
-（直接抓取窗口画面），而不是文字列表：
+It opens a full-screen overlay that lists every scratchpad together with the
+windows inside it, showing **live thumbnails** of those windows. Everything is
+driven from the keyboard: move the selection, show/hide a whole scratchpad,
+cycle through its members, or jump straight to a window.
+
+> End-user documentation: **[`docs/index.html`](docs/index.html)** (English) ·
+> **[`docs/zh.html`](docs/zh.html)** (Chinese). Self-contained offline HTML —
+> open it directly in a browser. Once the repository is published with GitHub
+> Pages (Settings → Pages → source: `/docs`), the manual is also served at
+> <https://ccjjxl.github.io/paddeck/> and
+> <https://ccjjxl.github.io/paddeck/zh.html>.
+> This README is aimed at developers and packagers.
+> See [`CHANGELOG.md`](CHANGELOG.md) for release notes.
+
+The UI does exactly one thing: **a selection plus actions**. Each scratchpad's
+windows are laid out as a thumbnail grid (captured from the real windows), not a
+text list:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Scratchpads                                    ● connected      │
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ work                                       [visible]        │ │  ← 选中项：
-│ │ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐       │ │     绿色边框
-│ │ │  真实画面缩略图 │ │  真实画面缩略图 │ │  真实画面缩略图 │       │ │
-│ │ │ OC | 用 C++ … │ │ ⌨ foot        │ │ ⌨ foot        │       │ │
-│ │ └───────────────┘ └───────────────┘ └───────────────┘       │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ media                                        [empty]        │ │
-│ │ Empty — toggling it runs: spotify                           │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│ j/k select · space toggle · ←/→ member · enter focus · esc close │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│  scratchpads                                          ● connected │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ work                                             [visible]  │  │
+│  │ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐       │  │
+│  │ │ live preview  │ │ foot          │ │ foot          │       │  │
+│  │ └───────────────┘ └───────────────┘ └───────────────┘       │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ media                                              [empty]  │  │
+│  │ Empty — toggling it runs: spotify                           │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│  j/k select · space toggle · ←/→ member · enter focus · esc close │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-面板、卡片、缩略图的轮廓都保持 1px 细线，面板与缩略图沿用主题的
-`colors.border.unfocused`（在 Umbriel 默认配色里它等于面板底色，因此几乎不可见，
-这是刻意的：它们不该抢眼）。**只有选中的 scratchpad 卡片**用主题的强调绿
-（`accent_secondary`）描边，并把它自己的名字也染成绿色——绿框 = 当前选中。
-选中与未选中的边框宽度一致，所以移动选中项时缩略图不会抖动。
+Every outline — panel, cards, tiles — stays a 1px hairline and reuses the
+theme's `colors.border.unfocused` (which equals the panel background in
+Umbriel's default palette, so it is almost invisible on purpose: these borders
+should not draw attention). **Only the selected scratchpad card** gets the
+theme's accent green (`accent_secondary`), and its name is tinted to match:
+green border = current selection. The border width is 1px in both states, so
+moving the selection never makes the thumbnails jump.
 
-## 键盘操作
+## Keyboard
 
-所有按键都作用于**当前选中项**，按键提示常驻在面板底部。
+Every key acts on the **current selection**, and the key legend is always
+visible at the bottom of the panel.
 
-| 按键 | 动作 | Umbriel 动作 |
+| Key | Action | Umbriel action |
 | --- | --- | --- |
-| `j` / `k`、`↓` / `↑`、`Tab` / `Shift+Tab` | 上下移动选中项（首尾循环） | — |
-| `Space` | 显示 / 隐藏选中的暂存区 | `scratchpad-toggle:<name>` |
-| `h` / `l`、`←` / `→` | 只显示上一个 / 下一个成员窗口 | `scratchpad-window-show-previous\|next:<name>` |
-| `Enter` | 跳转到选中暂存区的窗口并关闭面板 | `window-focus:<id>` |
-| `1` … `9` | 跳到第 n 个暂存区并立即切换 | `scratchpad-toggle:<name>` |
-| `Home` / `End` | 跳到第一个 / 最后一个 | — |
-| `Esc` | 关闭面板 | — |
+| `j` / `k`, `↓` / `↑`, `Tab` / `Shift+Tab` | Move the selection (wraps around) | — |
+| `Space` | Show / hide the selected scratchpad | `scratchpad-toggle:<name>` |
+| `h` / `l`, `←` / `→` | Show only the previous / next member window | `scratchpad-window-show-previous\|next:<name>` |
+| `Enter` | Focus a window in the selected scratchpad and close | `window-focus:<id>` |
+| `1` … `9` | Jump to the n-th scratchpad and toggle it immediately | `scratchpad-toggle:<name>` |
+| `Home` / `End` | Jump to the first / last scratchpad | — |
+| `Esc` | Close the panel | — |
 
-鼠标仍然可用：点击卡片 = 选中；点击缩略图 = 跳转并关闭；点击面板外 = 关闭。
+The mouse still works: click a card to select it, click a thumbnail to focus
+that window and close, click outside the panel to dismiss.
 
-## 功能
+## Features
 
-**切换（唯一的核心功能，通过 Umbriel IPC 实时同步）**
+**Switching (the only core feature, kept in sync over Umbriel IPC)**
 
-- 列出每个 scratchpad：名称、窗口数量、`visible` / `partly visible` /
-  `hidden` / `empty` 状态标签，以及可选的 `spawn_when_empty` 提示。
-- 键盘切换整个暂存区、逐个成员切换、跳转到具体窗口（见上表）。
-- 每个成员窗口显示为**缩略图卡片**，使用真实窗口画面：
-  - 点击卡片 → `window-focus:<id>`，然后关闭面板。
-  - 卡片左上角的状态标签（`focused` / `visible` / `urgent`）与边框颜色反映窗口状态。
-  - 缩略图缺失时显示 app id 首字母（如 `GC`、`FO`），不会显示占位文案。
-- 选中项进入视口时自动滚动；断线重连、操作失败均在底部给出提示。
+- Lists every scratchpad: name, window count, a `visible` / `partly visible` /
+  `hidden` / `empty` status badge, and an optional `spawn_when_empty` hint.
+- Switch a whole scratchpad, cycle its members, or focus a specific window
+  (see the table above).
+- Every member window is rendered as a **thumbnail card** using its real
+  content:
+  - Clicking a card sends `window-focus:<id>` and closes the panel.
+  - A status badge in the top-left corner (`focused` / `visible` / `urgent`)
+    and the tile border colour reflect the window state.
+  - When no thumbnail is available, the tile shows the first letters of the app
+    id (e.g. `GC`, `FO`) instead of placeholder text.
+- The selection is scrolled into view automatically; disconnects and failed
+  actions are reported at the bottom of the panel.
 
-**窗口预览（缩略图）**
+**Window previews (thumbnails)**
 
-- 通过 Wayland 的 `ext-image-copy-capture-v1` + `ext-foreign-toplevel-list-v1`
-  协议逐窗口抓帧，因此**隐藏在 scratchpad 里的窗口也能取到真实画面**——这正是
-  scratchpad 场景最有用的地方。`ext_foreign_toplevel_handle_v1` 给出的 identifier
-  与 Umbriel IPC 的 window id 完全一致，两边可以精确对应，无需靠标题猜测。
-- 抓帧在独立的工作线程里进行（自带一条 Wayland 连接），成品通过 `Glib::Dispatcher`
-  交回 GTK 主线程；缩略图统一缩放到 220×124 的画布（16:9，与每行 3 张的网格匹配），
-  保证网格整齐。
-- 覆盖层可见时每 4 秒刷新一次；隐藏时立刻停止抓帧。抓帧失败会退避 20 秒再试。
-- 合成器不支持这些协议时，覆盖层照常工作（只显示首字母），并在底部提示
-  `Window previews are unavailable on this compositor.`。
+- Captures each window through the Wayland `ext-image-copy-capture-v1` and
+  `ext-foreign-toplevel-list-v1` protocols, so **windows hidden inside a
+  scratchpad still produce a real image** — exactly where this is most useful.
+  The identifier handed out by `ext_foreign_toplevel_handle_v1` matches the
+  window id reported by Umbriel IPC, so the two sides pair up precisely without
+  guessing from titles.
+- Capture runs on a dedicated worker thread with its own Wayland connection;
+  finished frames are handed back to the GTK main thread through
+  `Glib::Dispatcher`. Thumbnails are scaled onto a 220×124 canvas (16:9, matching
+  the three-per-row grid) so the grid stays tidy.
+- Refreshes every 4 seconds while the overlay is visible and stops immediately
+  when hidden. A failed capture backs off for 20 seconds.
+- If the compositor lacks these protocols the overlay still works (initials
+  only) and shows `Window previews are unavailable on this compositor.` at the
+  bottom.
 
-**只读配置**
+**Read-only configuration**
 
-- 每次打开面板重新读取一次 Umbriel 配置，包括递归的 `[include]` /
-  `[include.optional]` 与 `~`、`$VAR` 展开。
-- **不写任何文件**：没有托管文件、没有 include 注入、没有备份、没有确认弹窗。
-  增删 scratchpad 由用户直接编辑配置文件完成。
+- The Umbriel configuration is re-read every time the panel opens, including
+  recursive `[include]` / `[include.optional]` and `~` / `$VAR` expansion.
+- **It never writes any file**: no managed file, no include injection, no
+  backup, no confirmation dialogs. Scratchpads are added or removed by editing
+  the configuration directly.
 
-**主题跟随**：订阅 Umbriel 的 `theme` 事件，用当前配色与圆角动态生成 CSS。
+**Theme aware**: subscribes to Umbriel's `theme` event and generates CSS from
+the current palette and corner radius.
 
-## 依赖
+## Requirements
 
-| 依赖 | 版本 | 用途 |
+| Dependency | Version | Purpose |
 | --- | --- | --- |
-| gtkmm-4.0 | ≥ 4.10（构建环境 4.22） | GTK4 的 C++ 绑定 |
-| gtk4-layer-shell-0 | ≥ 1.0（构建环境 1.3） | layer-shell 覆盖层 |
-| nlohmann_json | 任意 | IPC JSON |
-| tomlplusplus | ≥ 3.0 | 读取配置 |
-| wayland-client | 任意 | 窗口抓帧的底层连接 |
-| wayland-protocols | ≥ 1.36 | 生成 `ext-image-copy-capture-v1` 等协议代码 |
-| meson + ninja | — | 构建 |
+| gtkmm-4.0 | ≥ 4.10 (built against 4.22) | C++ bindings for GTK4 |
+| gtk4-layer-shell-0 | ≥ 1.0 (built against 1.3) | layer-shell overlay |
+| nlohmann_json | any | IPC JSON |
+| tomlplusplus | ≥ 3.0 | reading the configuration |
+| wayland-client | any | low-level connection for window capture |
+| wayland-protocols | ≥ 1.36 | generates `ext-image-copy-capture-v1` and friends |
+| meson + ninja | — | build system |
 
-运行时需要正在运行的 Umbriel 会话（通过 `$UMBRIEL_SOCKET`，否则回退到
-`$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock`）。
+At runtime a running Umbriel session is required (via `$UMBRIEL_SOCKET`,
+falling back to `$XDG_RUNTIME_DIR/umbriel-$WAYLAND_DISPLAY.sock`).
 
-## 构建与安装
+## Build & install
 
 ```sh
 meson setup build
 ninja -C build
-sudo ninja -C build install      # 安装到 /usr/local/bin/scratchpads-umbriel
+sudo ninja -C build install      # installs to /usr/local/bin/paddeck
 ```
 
-## 使用
+## Usage
 
-绑定一个快捷键来开关覆盖层。把它加到 `~/.config/umbriel/binds.toml`（或 `config.toml`）：
+Bind a shortcut that launches the overlay. Add it to
+`~/.config/umbriel/binds.toml` (or `config.toml`):
 
 ```toml
 [keybinds]
-"Mod+S" = "spawn:scratchpads-umbriel"
+"Mod+S" = "spawn:paddeck"
 ```
 
-再次按下同一个快捷键时，`Gtk::Application` 会复用已有实例，因此覆盖层会在显示
-与隐藏之间切换。
+Pressing the same shortcut again makes `Gtk::Application` reuse the existing
+instance, so the overlay toggles between shown and hidden.
 
-- `Esc`、点击卡片外的暗色区域、或再次按快捷键关闭。
-- 覆盖层是 `overlay` 层的 layer-shell 表面，`namespace = "scratchpad-manager"`，
-  键盘交互为 `exclusive`，`exclusive_zone = 0`（不挤占其他窗口）。
-  如需给它设置专属外观，可在配置里用 `[[layer_rule]]` 匹配该 namespace。
+- `Esc`, clicking outside the card, or pressing the shortcut again closes it.
+- The overlay is a layer-shell surface on the `overlay` layer with
+  `namespace = "paddeck"`, keyboard interactivity `exclusive` and
+  `exclusive_zone = 0` (it does not reserve space from other windows). Use a
+  `[[layer_rule]]` matching that namespace if you want to style it.
 
-### 推荐的 Umbriel 配置
+### Recommended Umbriel configuration
 
-加上这一段，**任何**窗口进入暂存区时都会统一变成输出可用区域的 90% × 90% 并居中，
-与面板里看到的效果一致，也不需要按应用名逐个写规则：
+With this snippet, **any** window that enters a scratchpad is resized to 90% ×
+90% of the output's usable area and centred, matching what you see in the panel
+— no per-application rules required:
 
 ```toml
 # ~/.config/umbriel/config.toml
 [animation.scratchpad]
-scale = 0.9        # 0.1–1.0；0 表示保持窗口原有尺寸和位置
+scale = 0.9        # 0.1–1.0; 0 keeps the window's original size and position
 ```
 
-- 窗口进入暂存区时**本来就会自动浮动**，不必再写 `default_floating = true`。
-- 优先级 `fullscreen` > `maximize` > `scale`，后两者保持 `false`（默认值）即可。
-- 尺寸有 100px 下限；该值只在窗口**进入**暂存区时计算一次，改配置后已在暂存区里的
-  旧窗口需要取出来再放回去才会套用新尺寸。
+- Windows entering a scratchpad **are made floating automatically**, so
+  `default_floating = true` is not needed.
+- Precedence is `fullscreen` > `maximize` > `scale`; leave the first two at
+  `false` (their default) for this to apply.
+- There is a 100px floor, and the value is computed once when a window
+  **enters** the scratchpad. After changing the config, windows already in a
+  scratchpad must be taken out and put back in to pick up the new size.
 
-**不要**用窗口规则做同样的事，这样写**不会生效**：
+**Do not** try to achieve the same with a window rule — the following does
+**not** work:
 
 ```toml
-# ✗ 无效：开窗设置只在窗口打开那一刻结算，那时它还不在暂存区里
+# ✗ Invalid: open-time settings are resolved when the window opens, before it
+#   is in a scratchpad
 [[window_rule]]
 match.is_scratchpad = true
 default_floating = true
 default_floating_size = { width = 0.9, height = 0.9 }
 ```
 
-`match.is_scratchpad` 只对**运行时状态**类字段有效，例如 `opacity`、`blur`、
-`border_color_focused`：
+`match.is_scratchpad` only applies to **runtime** properties such as `opacity`,
+`blur` and `border_color_focused`:
 
 ```toml
-# ✓ 有效：暂存区里的窗口统一半透明
+# ✓ Valid: every window in a scratchpad becomes slightly translucent
 [[window_rule]]
 match.is_scratchpad = true
 opacity = 0.9
 ```
 
-### 命令行
+### Command line
 
 ```
-scratchpads-umbriel [options]
+paddeck [options]
 
-  -c, --config <path>   使用指定的 Umbriel 配置，而不是按 XDG 顺序查找
-      --socket <path>   覆盖 IPC socket（默认 $UMBRIEL_SOCKET）
-      --window          使用普通窗口而非 layer-shell 表面
-      --dump            以文本打印 scratchpad 及其窗口后退出
-  -h, --help            帮助
-  -v, --version         版本
+  -c, --config <path>   use the given Umbriel config instead of the XDG search
+      --socket <path>   override the IPC socket (default: $UMBRIEL_SOCKET)
+      --window          use a normal window instead of a layer-shell surface
+      --dump            print scratchpads and their windows as text, then exit
+  -h, --help            show help
+  -v, --version         show version
 ```
 
-`--dump` 便于排查问题，例如：
+`--dump` is handy for troubleshooting:
 
 ```console
-$ scratchpads-umbriel --dump
+$ paddeck --dump
 config: /home/me/.config/umbriel/config.toml
 loaded: 6 file(s)
 
@@ -190,67 +226,83 @@ loaded: 6 file(s)
     focused  kitty                editor
 ```
 
-## 实现说明
+## Implementation notes
 
 ```
 src/
-├── main.cpp                    程序入口、命令行解析、应用单实例切换
+├── main.cpp                    entry point, CLI parsing, single-instance toggle
 ├── model/
-│   ├── types.*                 WindowInfo / Theme / ScratchpadDef 与 JSON 解析
-│   ├── scratchpad.*            把配置定义与实时窗口合并为 Scratchpad 列表
-│   └── config_store.*          只读的配置发现与递归 include 解析
+│   ├── types.*                 WindowInfo / Theme / ScratchpadDef and JSON parsing
+│   ├── scratchpad.*            merges config definitions with live windows
+│   └── config_store.*          read-only config discovery and recursive include parsing
 ├── umbriel/
-│   ├── ipc.*                   Unix socket 客户端：订阅事件 + 动作队列
-│   └── capture.*               独立线程的逐窗口抓帧客户端（ext-image-copy-capture-v1）
+│   ├── ipc.*                   Unix socket client: event subscription + action queue
+│   └── capture.*               per-window capture client on its own thread
 └── ui/
-    ├── theme.*                 Umbriel 配色 → GTK CSS（#rrggbbaa → rgba()）
-    └── overlay_window.*        layer-shell 覆盖层、选中项状态与全部键盘处理
+    ├── theme.*                 Umbriel palette → GTK CSS (#rrggbbaa → rgba())
+    └── overlay_window.*        layer-shell overlay, selection state, all key handling
 ```
 
-另有一份面向普通用户的离线 HTML 使用手册：`docs/manual.html`（自包含样式，
-无外部资源与脚本，支持深色 / 浅色与打印）。
+A user-facing offline HTML manual is provided in two languages:
+`docs/index.html` (English) and `docs/zh.html` (Chinese). Both are
+self-contained, use no external assets or scripts, and support dark / light
+colour schemes and printing.
 
-meson 会在构建时用 `wayland-scanner` 生成
-`ext-foreign-toplevel-list-v1` / `ext-image-capture-source-v1` /
-`ext-image-copy-capture-v1` 的绑定代码，编译成静态库后链接进主程序。
-版本号由 `configure_file` 从 `project version` 生成 `spm_config.hpp`，
-`--version` 与代码里都不再硬编码。
+meson generates the `ext-foreign-toplevel-list-v1` /
+`ext-image-capture-source-v1` / `ext-image-copy-capture-v1` bindings with
+`wayland-scanner` at build time, compiles them into a static library and links
+that into the binary. The version string is produced by `configure_file` from
+`project version` into `paddeck_config.hpp`, so neither `--version` nor the
+source hard-codes it.
 
-- **IPC**：`{"cmd":"subscribe","events":["windows","theme"]}` 提供全量快照
-  （Umbriel 的 payload 是快照而非增量），运行在独立线程，用 `Glib::Dispatcher`
-  把结果投递回 GTK 主线程；动作在另一个工作线程里顺序发送
-  `{"cmd":"msg","arg":"..."}`。断线后每 1 秒自动重连。
-- **键盘**：`Gtk::EventControllerKey` 挂在窗口上并使用 `CAPTURE` 阶段，
-  因此列表永远不会把按键拿去做自己的焦点导航；`Tab` / 方向键被显式消费。
-- **选中与滚动**：选中项所在的卡片设置了 `can_focus`，靠 `grab_focus()`
-  让 `GtkScrolledWindow` 自动把它滚进视口，不需要自己算坐标。
-- **配置解析**：从主配置出发递归处理 `[include]` / `[include.optional]`，
-  支持 `~`、`$VAR` 展开；若完全没有 `[[scratchpad]]`，则按 Umbriel 语义视为
-  隐式的 `default`。解析过程只读，不产生任何副作用。
-- **颜色**：`GdkRGBA` 不接受 `#rrggbbaa`，所以把 Umbriel 的 8 位十六进制颜色
-  转成 `rgba(r,g,b,a)` 再交给 CSS。
-- **窗口预览**：抓帧线程自己持有 `wl_display`，只在覆盖层可见时工作；每帧先按
-  `buffer_size` / `shm_format` 约束创建 shm buffer，读回像素后再缩放并居中到固定画布。
-  卡片本身的 `size_request` 才是尺寸来源，因此抓帧还没完成（或永远失败）时，
-  卡片不会塌陷到标题栏上。
+- **IPC**: `{"cmd":"subscribe","events":["windows","theme"]}` delivers a full
+  snapshot (Umbriel's payload is a snapshot, not a delta). It runs on a separate
+  thread and posts results back to the GTK main thread with
+  `Glib::Dispatcher`; actions are sent sequentially as
+  `{"cmd":"msg","arg":"..."}` from another worker thread. Reconnects every
+  second after a disconnect.
+- **Keyboard**: a `Gtk::EventControllerKey` is attached in the `CAPTURE` phase,
+  so the list never consumes keys for its own focus navigation; `Tab` and the
+  arrow keys are consumed explicitly.
+- **Selection and scrolling**: the card holding the selection is focusable, and
+  `grab_focus()` makes `GtkScrolledWindow` scroll it into view without manual
+  coordinate math.
+- **Config parsing**: starts from the main config and recursively processes
+  `[include]` / `[include.optional]`, expanding `~` and `$VAR`. With no
+  `[[scratchpad]]` at all, Umbriel's implicit `default` scratchpad is assumed.
+  Parsing is strictly read-only.
+- **Colours**: `GdkRGBA` does not accept `#rrggbbaa`, so Umbriel's 8-digit hex
+  colours are converted to `rgba(r,g,b,a)` before being handed to CSS.
+- **Previews**: the capture thread owns its own `wl_display` and only works
+  while the overlay is visible. Each frame first creates an shm buffer honouring
+  the `buffer_size` / `shm_format` constraints, then reads the pixels back,
+  scales them and centres them on a fixed canvas. The card's own `size_request`
+  defines its size, so the card does not collapse onto its header while capture
+  is pending (or failing for good).
 
-## 注意事项
+## Caveats
 
-- 「新建」一个具名 scratchpad 后，Umbriel 会移除隐式的 `default`，
-  其中暂存的窗口会回到它们保存的工作区。这发生在 Umbriel 侧，本工具只做展示。
-- 面板只列出**存在于暂存区里的窗口**；普通显示在桌面上的窗口不会出现。
-- 面板每次打开都会重新读取配置，所以配置改动无需重启，也不必点「重新加载」。
-- `--dump` 只读：它不会发送 `config-reload`，也不会修改你的任何文件。
+- After you "create" a named scratchpad, Umbriel removes the implicit `default`
+  scratchpad and any windows parked in it return to their saved workspaces.
+  That happens on Umbriel's side; paddeck only displays it.
+- The panel only lists **windows that live in a scratchpad**. Ordinary windows
+  on the desktop do not appear — that is the point of a scratchpad switcher.
+- The configuration is re-read every time the panel opens, so changes need
+  neither a restart nor a "reload" button.
+- `--dump` is read-only: it never sends `config-reload` and never touches your
+  files.
 
-## 版本与许可
+## Version & license
 
-- 当前版本：**0.1.0**（见 [`CHANGELOG.md`](CHANGELOG.md)）。
-- 许可证：[MIT](LICENSE)。所有源文件均带 `SPDX-License-Identifier: MIT` 标识。
-- 源码发布包：
+- Current version: **0.1.0** (see [`CHANGELOG.md`](CHANGELOG.md)).
+- License: [MIT](LICENSE). Every source file carries an
+  `SPDX-License-Identifier: MIT` header.
+- Source tarball:
 
   ```sh
-  meson dist                      # 生成 build/meson-dist/scratchpads-umbriel-<版本>.tar.xz
+  meson dist                      # writes build/meson-dist/paddeck-<version>.tar.xz
   ```
 
-- 运行时要求：Umbriel（wlroots）会话；窗口预览额外需要合成器提供
-  `ext-image-copy-capture-v1` 与 `ext-foreign-toplevel-list-v1`，否则只显示首字母。
+- Runtime requirement: an Umbriel (wlroots) session. Window previews
+  additionally need the compositor to provide `ext-image-copy-capture-v1` and
+  `ext-foreign-toplevel-list-v1`; otherwise tiles show initials.

@@ -8,7 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace spm {
+namespace paddeck {
 
 /// A window as reported by `umbriel windows` / `subscribe windows`.
 struct WindowInfo {
@@ -60,4 +60,4 @@ struct ScratchpadDef {
 /// Replace bytes that are not valid UTF-8 so the value is safe for GTK.
 std::string to_valid_utf8(const std::string& in);
 
-}  // namespace spm
+}  // namespace paddeck
