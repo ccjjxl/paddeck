@@ -205,7 +205,8 @@ wl_proxy_marshal_array_flags(struct wl_proxy* proxy, uint32_t opcode,
     }
 
     for (const Hook& hook : g_hooks) {
-        if (hook.opcode != opcode || !created_interface) continue;
+        if (!created_interface) continue;
+        if (hook.opcode != kAnyOpcode && hook.opcode != opcode) continue;
         if (std::strcmp(hook.interface_name, created_interface->name) != 0) {
             continue;
         }

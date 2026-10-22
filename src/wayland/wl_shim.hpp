@@ -20,6 +20,10 @@
 
 namespace paddeck::wl_shim {
 
+/// Passed as the opcode to install_request_hook() to match every request of
+/// the interface, not just one.
+inline constexpr uint32_t kAnyOpcode = 0xffffffffu;
+
 using RequestHandler = bool (*)(
     void* data,
     struct wl_proxy* proxy,

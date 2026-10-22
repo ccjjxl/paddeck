@@ -5,6 +5,14 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Running on a compositor that advertises `xdg_wm_dialog_v1` no longer kills the
+  Wayland connection with `Error 22 (Invalid argument)`. GTK 4.22 creates an
+  `xdg_dialog_v1` for every toplevel, and that request referenced the local
+  `xdg_toplevel` stand-in used by the layer-shell shim, so the compositor
+  received an unknown object id. The dialog is now kept local as well.
+
 ### Changed
 
 - **The `gtk4-layer-shell-0` dependency is gone.** The `wlr-layer-shell` client

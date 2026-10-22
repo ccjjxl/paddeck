@@ -75,6 +75,7 @@ struct LayerShell::Impl {
     struct wl_proxy* xdg_surface = nullptr;
     struct wl_proxy* xdg_toplevel = nullptr;
     struct wl_proxy* xdg_popup = nullptr;
+    struct wl_proxy* xdg_dialog = nullptr;
 
     std::string name_space = "paddeck";
     uint32_t layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
@@ -194,11 +195,17 @@ void xdg_popup_destroyed(void* data, struct wl_proxy*) {
     impl->xdg_popup = nullptr;
 }
 
+void xdg_dialog_destroyed(void* data, struct wl_proxy*) {
+    auto* impl = static_cast<LayerShell::Impl*>(data);
+    impl->xdg_dialog = nullptr;
+}
+
 void xdg_surface_destroyed(void* data, struct wl_proxy*) {
     auto* impl = static_cast<LayerShell::Impl*>(data);
     impl->xdg_surface = nullptr;
     impl->xdg_toplevel = nullptr;
     impl->xdg_popup = nullptr;
+    impl->xdg_dialog = nullptr;
 }
 
 bool xdg_toplevel_request(void*, struct wl_proxy*, uint32_t, const struct wl_interface*,
@@ -212,6 +219,13 @@ bool xdg_toplevel_request(void*, struct wl_proxy*, uint32_t, const struct wl_int
 bool xdg_popup_request(void*, struct wl_proxy*, uint32_t, const struct wl_interface*,
                        uint32_t, uint32_t, union wl_argument*,
                        struct wl_proxy**) {
+    return true;
+}
+
+bool xdg_dialog_request(void*, struct wl_proxy*, uint32_t, const struct wl_interface*,
+                        uint32_t, uint32_t, union wl_argument*,
+                        struct wl_proxy**) {
+    // set_modal/unset_modal carry no meaning for a layer surface.
     return true;
 }
 
@@ -283,6 +297,33 @@ bool on_get_xdg_surface(void*, struct wl_proxy*, uint32_t,
     return true;
 }
 
+bool on_get_xdg_dialog(void*, struct wl_proxy*, uint32_t,
+                       const struct wl_interface* created_interface,
+                       uint32_t created_version, uint32_t,
+                       union wl_argument* args, struct wl_proxy** ret_proxy) {
+    if (!created_interface || !args) return false;
+    if (std::strcmp(created_interface->name, "xdg_dialog_v1") != 0) return false;
+
+    // GTK 4.22 creates an xdg_dialog_v1 for every toplevel as soon as the
+    // compositor advertises xdg_wm_dialog_v1.  The toplevel it references is
+    // our local stand-in, which never reached the compositor, so forwarding
+    // this request would hand Umbriel an unknown object id and kill the
+    // connection ("invalid arguments").  Keep the dialog local too.
+    // The request is get_xdg_dialog(new_id xdg_dialog_v1, object xdg_toplevel),
+    // so the parent toplevel is the second argument.
+    auto* toplevel = reinterpret_cast<struct wl_proxy*>(args[1].o);
+    for (LayerShell::Impl* impl : g_instances) {
+        if (impl->xdg_toplevel != toplevel) continue;
+        impl->xdg_dialog = wl_shim::create_proxy(
+            impl->display, created_interface,
+            created_version != 0 ? created_version : 1, xdg_dialog_request,
+            xdg_dialog_destroyed, impl);
+        *ret_proxy = impl->xdg_dialog;
+        return true;
+    }
+    return false;
+}
+
 }  // namespace
 
 bool LayerShell::supported() { return ensure_global() != nullptr; }
@@ -299,6 +340,11 @@ LayerShell::LayerShell(Gtk::Window& window) : m_impl(std::make_unique<Impl>()) {
         wl_shim::install_request_hook("xdg_surface",
                                       XDG_WM_BASE_GET_XDG_SURFACE,
                                       on_get_xdg_surface, nullptr);
+        // xdg_wm_dialog_v1.get_xdg_dialog is not necessarily opcode 0 (destroy
+        // comes first), and the protocol is newer than the wayland-protocols
+        // we build against, so match every request that creates a dialog.
+        wl_shim::install_request_hook("xdg_dialog_v1", wl_shim::kAnyOpcode,
+                                      on_get_xdg_dialog, nullptr);
     }
 }
 
