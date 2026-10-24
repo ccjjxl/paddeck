@@ -3,7 +3,10 @@
 All notable changes to this project are documented in this file. This project
 follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] — 2026-10-24
+
+The overlay no longer needs `gtk4-layer-shell-0`, and it survives compositors that
+advertise `xdg_wm_dialog_v1`.
 
 ### Fixed
 
@@ -12,6 +15,8 @@ follows [Semantic Versioning](https://semver.org/).
   `xdg_dialog_v1` for every toplevel, and that request referenced the local
   `xdg_toplevel` stand-in used by the layer-shell shim, so the compositor
   received an unknown object id. The dialog is now kept local as well.
+- The `wl_proxy` interposer is thread-safe, so the preview capture thread can
+  marshal its own Wayland connection without racing the layer-shell shim.
 
 ### Changed
 
@@ -112,4 +117,5 @@ switch scratchpads without touching the mouse.
 - The panel only lists windows that currently live in a scratchpad. Ordinary
   desktop windows never appear.
 
+[0.2.0]: https://github.com/ccjjxl/paddeck/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ccjjxl/paddeck/releases/tag/v0.1.0

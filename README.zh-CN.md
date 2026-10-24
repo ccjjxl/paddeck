@@ -259,7 +259,7 @@ meson 会在构建时用 `wayland-scanner` 生成 `xdg-shell`、
 
 ## 版本与许可
 
-- 当前版本：**0.1.0**（见 [`CHANGELOG.md`](CHANGELOG.md)）。
+- 当前版本：**0.2.0**（见 [`CHANGELOG.md`](CHANGELOG.md)）。
 - 许可证：[MIT](LICENSE)。所有源文件均带 `SPDX-License-Identifier: MIT` 标识。
 - 源码发布包：
 
