@@ -319,6 +319,9 @@ void OverlayWindow::rebuild() {
         return;
     }
     m_scratchpads = build_scratchpads(m_config.defs(), m_windows);
+    // The listing is most-recently-focused first; put the members back into the
+    // order this overlay remembers so a card never reflows under the keys.
+    m_member_order.apply(m_scratchpads);
     // Slots point into the widget tree that is about to be torn down.
     m_thumb_slots.clear();
     m_rows.clear();
@@ -417,23 +420,24 @@ void OverlayWindow::focus_selected() {
     if (sp == nullptr || sp->windows.empty()) {
         return;
     }
-    // Prefer the window Umbriel already considers focused, then any visible one,
-    // otherwise just the first: `window-focus` reveals it from a hidden
-    // scratchpad, so any member is a valid target.
     const WindowInfo* target = nullptr;
-    for (const auto& w : sp->windows) {
-        if (w.focused) {
-            target = &w;
-            break;
-        }
-    }
-    if (target == nullptr) {
+    // Prefer the window that already holds keyboard focus, then one that is on
+    // screen, then any member: `window-focus` reveals it from a hidden
+    // scratchpad, so every member is a valid target.
+    const auto first_matching = [&sp](bool WindowInfo::*flag) -> const WindowInfo* {
         for (const auto& w : sp->windows) {
-            if (w.visible) {
-                target = &w;
-                break;
+            if (w.*flag) {
+                return &w;
             }
         }
+        return nullptr;
+    };
+    target = first_matching(&WindowInfo::active);
+    if (target == nullptr) {
+        target = first_matching(&WindowInfo::focused);
+    }
+    if (target == nullptr) {
+        target = first_matching(&WindowInfo::visible);
     }
     if (target == nullptr) {
         target = &sp->windows.front();
@@ -531,6 +535,7 @@ void OverlayWindow::on_thumbnail(Thumbnail thumbnail) {
 
 Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int index) {
     const int visible = sp.visible_count();
+    const Scratchpad::Presentation presentation = sp.presentation();
 
     auto* row = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL, 8);
     row->add_css_class("pd-sp");
@@ -566,9 +571,13 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
     if (sp.windows.empty()) {
         badge->set_text("empty");
         badge->add_css_class("pd-badge-off");
-    } else if (visible > 0) {
-        badge->set_text(visible == static_cast<int>(sp.windows.size()) ? "visible"
-                                                                      : "partly visible");
+    } else if (presentation == Scratchpad::Presentation::all) {
+        badge->set_text("visible");
+        badge->add_css_class("pd-badge-on");
+    } else if (presentation == Scratchpad::Presentation::single) {
+        // Stepping through the members: say which one of how many is on screen.
+        badge->set_text("showing " + std::to_string(visible) + " of " +
+                        std::to_string(sp.windows.size()));
         badge->add_css_class("pd-badge-on");
     } else {
         badge->set_text("hidden");
@@ -590,7 +599,14 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
 
         int shown = 0;
         for (const auto& window : sp.windows) {
-            grid->attach(*build_window_tile(window), shown % kColumns, shown / kColumns, 1, 1);
+            Gtk::Widget* tile = build_window_tile(window);
+            if (presentation == Scratchpad::Presentation::single && !window.visible) {
+                // A stepped pad shows one member at a time. Dim the parked ones
+                // instead of moving the shown one to the front: the grid keeps a
+                // fixed order, so ← / → just walks the highlight across it.
+                tile->add_css_class("pd-tile-dim");
+            }
+            grid->attach(*tile, shown % kColumns, shown / kColumns, 1, 1);
             ++shown;
         }
         row->append(*grid);
@@ -614,12 +630,15 @@ Gtk::Widget* OverlayWindow::build_scratchpad_card(const Scratchpad& sp, int inde
 
 Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     const std::string id = w.id;
+    // Scratchpad windows never report workspace-local focus, so the badge tracks
+    // the seat-global activation instead - that is the window the keys act on.
+    const bool focused = w.active || w.focused;
 
     auto* tile = Gtk::make_managed<Gtk::Overlay>();
     tile->add_css_class("pd-tile");
     if (w.urgent) {
         tile->add_css_class("pd-tile-urgent");
-    } else if (w.focused) {
+    } else if (focused) {
         tile->add_css_class("pd-tile-focused");
     } else if (w.visible) {
         tile->add_css_class("pd-tile-visible");
@@ -660,9 +679,9 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     placeholder->append(*monogram);
     tile->add_overlay(*placeholder);
 
-    if (w.urgent || w.focused || w.visible) {
+    if (w.urgent || focused || w.visible) {
         auto* pill = Gtk::make_managed<Gtk::Label>(
-            w.urgent ? "urgent" : (w.focused ? "focused" : "visible"));
+            w.urgent ? "urgent" : (focused ? "focused" : "visible"));
         pill->add_css_class("pd-badge");
         pill->add_css_class(w.urgent ? "pd-badge-urgent" : "pd-badge-on");
         pill->set_halign(Gtk::Align::START);

@@ -457,7 +457,7 @@ sudo ninja -C build install</code></pre>
         <li><span class="pin">1</span><span><b>标题栏</b>：面板名称，右侧是连接状态。</span></li>
         <li><span class="pin">2</span><span><b>选中的暂存区</b>：边框和名称会亮起来。键盘操作全部作用在它身上，所以先看清它。</span></li>
         <li><span class="pin">3</span><span><b>窗口画面</b>：窗口内容的实时缩略图，底部一行是标题和应用名。</span></li>
-        <li><span class="pin">4</span><span><b>状态标签</b>：<b>显示中</b> / <b>部分显示</b> / <b>隐藏中</b> / <b>空</b>，一眼看出这个暂存区现在的状态。</span></li>
+        <li><span class="pin">4</span><span><b>状态标签</b>：<b>显示中</b> / <b>显示 n / m</b> / <b>隐藏中</b> / <b>空</b>，一眼看出这个暂存区现在的状态。</span></li>
         <li><span class="pin">5</span><span><b>底部按键提示</b>：常驻显示所有快捷键，忘了随时低头看一眼。</span></li>
       </ul>
 
@@ -469,7 +469,7 @@ sudo ninja -C build install</code></pre>
           </thead>
           <tbody>
             <tr><td><b>显示中</b></td><td>这个暂存区的窗口全部显示在屏幕上。</td></tr>
-            <tr><td><b>部分显示</b></td><td>只有一部分成员显示着（比如你用 <kbd>h</kbd> <kbd>l</kbd> 单独放出来了一个）。</td></tr>
+            <tr><td><b>显示 n / m</b></td><td>暂存区正在逐个显示成员（比如按了 <kbd>h</kbd> <kbd>l</kbd>）：<b>n</b> 是当前显示的成员序号，<b>m</b> 是成员总数。其余成员会变暗，但缩略图位置保持不变。</td></tr>
             <tr><td><b>隐藏中</b></td><td>窗口都收在暂存区里，屏幕上没有。</td></tr>
             <tr><td><b>空</b></td><td>里面还没有窗口。若配置里写了“空的时候运行什么”，切换它就会启动那个程序。</td></tr>
             <tr><td><b>implicit</b></td><td>这是 Umbriel 默认的暂存区，不是你手动创建的。</td></tr>
@@ -484,7 +484,7 @@ sudo ninja -C build install</code></pre>
             <tr><th>标签</th><th>含义</th></tr>
           </thead>
           <tbody>
-            <tr><td><b>focused</b></td><td>这是当前正在使用的窗口。</td></tr>
+            <tr><td><b>focused</b></td><td>这是此刻真正持有键盘焦点的窗口。</td></tr>
             <tr><td><b>visible</b></td><td>窗口正显示在屏幕上（没有被收起）。</td></tr>
             <tr><td><b>urgent</b></td><td>窗口在请求注意（比如终端有提示音或新消息）。</td></tr>
           </tbody>
@@ -516,7 +516,7 @@ sudo ninja -C build install</code></pre>
             </tr>
             <tr>
               <td class="k"><kbd>h</kbd> / <kbd>l</kbd></td>
-              <td>只让选中暂存区的<b>上一个 / 下一个成员窗口</b>显示出来。等价于 <kbd>←</kbd> <kbd>→</kbd>。窗口多、不想一次全放出来时用。</td>
+              <td>只让选中暂存区的<b>上一个 / 下一个成员窗口</b>显示出来。等价于 <kbd>←</kbd> <kbd>→</kbd>。窗口多、不想一次全放出来时用。成员缩略图的位置始终不变，步进只是让高亮在网格上移动，不会把画面重新排列。</td>
             </tr>
             <tr>
               <td class="k"><kbd>Enter</kbd></td>
@@ -812,8 +812,8 @@ loaded: 6 file(s)
     hidden   kitty                ~
 
 [work]  2 window(s), 2 visible
-    visible  foot                 logs
-    focused  kitty                editor</code></pre>
+    focused  kitty                editor
+    visible  foot                 logs</code></pre>
       <p>
         每个窗口前的 <code>visible</code> / <code>focused</code> / <code>hidden</code>
         表示它当前是显示还是被收起。

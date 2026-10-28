@@ -60,7 +60,7 @@ visible at the bottom of the panel.
 | --- | --- | --- |
 | `j` / `k`, `↓` / `↑`, `Tab` / `Shift+Tab` | Move the selection (wraps around) | — |
 | `Space` | Show / hide the selected scratchpad | `scratchpad-toggle:<name>` |
-| `h` / `l`, `←` / `→` | Show only the previous / next member window | `scratchpad-window-show-previous\|next:<name>` |
+| `h` / `l`, `←` / `→` | Show only the previous / next member window (the tiles never reorder) | `scratchpad-window-show-previous\|next:<name>` |
 | `Enter` | Focus a window in the selected scratchpad and close | `window-focus:<id>` |
 | `1` … `9` | Jump to the n-th scratchpad and toggle it immediately | `scratchpad-toggle:<name>` |
 | `Home` / `End` | Jump to the first / last scratchpad | — |
@@ -73,15 +73,22 @@ that window and close, click outside the panel to dismiss.
 
 **Switching (the only core feature, kept in sync over Umbriel IPC)**
 
-- Lists every scratchpad: name, window count, a `visible` / `partly visible` /
+- Lists every scratchpad: name, window count, a `visible` / `showing n of m` /
   `hidden` / `empty` status badge, and an optional `spawn_when_empty` hint.
-- Switch a whole scratchpad, cycle its members, or focus a specific window
-  (see the table above).
+- Switch a whole scratchpad, step through its members, or focus a specific
+  window (see the table above).
 - Every member window is rendered as a **thumbnail card** using its real
   content:
+  - Members keep a fixed order that paddeck remembers, so a tile never jumps to
+    another slot when it is shown or hidden: `h` / `l` simply walks the
+    highlight across the grid. (Umbriel's window list is most-recently-focused
+    first, so it cannot be used directly; new members are appended at the end.)
+  - While a scratchpad shows one member at a time, the parked members are
+    dimmed so the shown one stays obvious.
   - Clicking a card sends `window-focus:<id>` and closes the panel.
   - A status badge in the top-left corner (`focused` / `visible` / `urgent`)
-    and the tile border colour reflect the window state.
+    and the tile border colour reflect the window state; `focused` is the
+    window that holds keyboard focus right now.
   - When no thumbnail is available, the tile shows the first letters of the app
     id (e.g. `GC`, `FO`) instead of placeholder text.
 - The selection is scrolled into view automatically; disconnects and failed
@@ -228,8 +235,8 @@ loaded: 6 file(s)
     hidden   kitty                ~
 
 [work]  2 window(s), 2 visible
-    visible  foot                 logs
     focused  kitty                editor
+    visible  foot                 logs
 ```
 
 ## Implementation notes

@@ -21,6 +21,10 @@ struct WindowInfo {
     long pid = 0;
     bool visible = false;
     bool focused = false;
+    // Holds keyboard focus right now. Unlike `focused` - which is workspace-local
+    // and therefore always false for windows parked in a scratchpad - this is the
+    // seat-global activation Umbriel reports, so it is what the overlay marks.
+    bool active = false;
     bool floating = false;
     bool pinned = false;
     bool fullscreen = false;

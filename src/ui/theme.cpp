@@ -130,6 +130,9 @@ std::string build_css(const Theme& t) {
     css << ".pd-tile-visible { border-color: " << css_color(t.accent_primary, 0.5) << "; }\n";
     css << ".pd-tile-focused { border-color: " << css_color(t.accent_secondary, 0.9) << "; }\n";
     css << ".pd-tile-urgent { border-color: " << css_color(t.warning, 0.9) << "; }\n";
+    // A pad stepped member by member keeps every tile in place; the parked ones
+    // recede so the shown tile is the obvious one without the grid moving.
+    css << ".pd-tile-dim { opacity: 0.45; }\n";
     css << ".pd-tile-shot { background-color: rgba(0,0,0,0.30); border-radius: "
         << px(inner) << "; }\n";
     css << ".pd-tile-monogram { color: " << css_color(t.text_primary, 0.30)

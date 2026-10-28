@@ -3,6 +3,34 @@
 All notable changes to this project are documented in this file. This project
 follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Tiles no longer jump around the grid while you step through a scratchpad's
+members.
+
+### Fixed
+
+- **Member tiles keep a fixed order.** Umbriel lists windows
+  most-recently-focused first, so its `windows` payload changes whenever focus
+  moves — and `scratchpad-window-show-next` promotes the window it reveals to
+  the front. Rebuilding a card straight from that listing made `→` reorder the
+  very tiles it acts on: a pad listing `kitty, foot` turned into `foot, kitty`.
+  `paddeck` now remembers an append-only member order per scratchpad (known
+  members keep their slot, new members join at the end, matching how Umbriel
+  appends its steps), so stepping only moves the highlight across the grid.
+- The per-window `focused` badge and `Enter` now use Umbriel's seat-global
+  `active` flag. Workspace-local focus is always false for windows parked in a
+  scratchpad, so the badge never appeared and `Enter` always picked the first
+  visible member instead of the one you were using.
+
+### Changed
+
+- While a scratchpad steps through its members, the parked tiles are dimmed and
+  the card badge reads `showing n of m` (instead of `partly visible`), so the
+  one on screen stays obvious without any layout change.
+- `--dump` labels each window `focused` / `visible` / `hidden` (or `urgent`)
+  using the same rules as the overlay.
+
 ## [0.2.0] — 2026-10-24
 
 The overlay no longer needs `gtk4-layer-shell-0`, and it survives compositors that
