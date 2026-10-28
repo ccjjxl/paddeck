@@ -53,6 +53,7 @@ void from_json(const nlohmann::json& j, WindowInfo& w) {
     w.pid = get_long(j, "pid");
     w.visible = get_bool(j, "visible");
     w.focused = get_bool(j, "focused");
+    w.active = get_bool(j, "active");
     w.floating = get_bool(j, "floating");
     w.pinned = get_bool(j, "pinned");
     w.fullscreen = get_bool(j, "fullscreen");

@@ -108,7 +108,8 @@ void print_scratchpads(const paddeck::ConfigStore& config) {
         }
         for (const auto& w : sp.windows) {
             std::printf("    %-8s %-20s %s\n",
-                        w.visible ? (w.focused ? "focused" : "visible") : "hidden",
+                        w.urgent ? "urgent"
+                                 : (w.active || w.focused ? "focused" : (w.visible ? "visible" : "hidden")),
                         w.app_id.c_str(), w.title.c_str());
         }
     }

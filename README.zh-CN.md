@@ -50,7 +50,7 @@ Umbriel 的 **scratchpad（暂存区）切换器**，用 C++20 + GTK4 实现，
 | --- | --- | --- |
 | `j` / `k`、`↓` / `↑`、`Tab` / `Shift+Tab` | 上下移动选中项（首尾循环） | — |
 | `Space` | 显示 / 隐藏选中的暂存区 | `scratchpad-toggle:<name>` |
-| `h` / `l`、`←` / `→` | 只显示上一个 / 下一个成员窗口 | `scratchpad-window-show-previous\|next:<name>` |
+| `h` / `l`、`←` / `→` | 只显示上一个 / 下一个成员窗口（缩略图位置固定不变） | `scratchpad-window-show-previous\|next:<name>` |
 | `Enter` | 跳转到选中暂存区的窗口并关闭面板 | `window-focus:<id>` |
 | `1` … `9` | 跳到第 n 个暂存区并立即切换 | `scratchpad-toggle:<name>` |
 | `Home` / `End` | 跳到第一个 / 最后一个 | — |
@@ -62,12 +62,17 @@ Umbriel 的 **scratchpad（暂存区）切换器**，用 C++20 + GTK4 实现，
 
 **切换（唯一的核心功能，通过 Umbriel IPC 实时同步）**
 
-- 列出每个 scratchpad：名称、窗口数量、`visible` / `partly visible` /
+- 列出每个 scratchpad：名称、窗口数量、`visible` / `showing n of m` /
   `hidden` / `empty` 状态标签，以及可选的 `spawn_when_empty` 提示。
-- 键盘切换整个暂存区、逐个成员切换、跳转到具体窗口（见上表）。
+- 键盘切换整个暂存区、逐个成员步进、跳转到具体窗口（见上表）。
 - 每个成员窗口显示为**缩略图卡片**，使用真实窗口画面：
+  - 成员顺序由 paddeck 记住并保持固定（新成员追加到末尾），显示 / 隐藏不会让任何
+    缩略图换位置：`h` / `l` 只是让高亮在网格上左右移动。Umbriel 的窗口列表是
+    “最近聚焦优先”，直接用它会让每次步进都重排缩略图。
+  - 当暂存区一次只显示一个成员时，其余成员会变暗，让当前显示的那一个保持醒目。
   - 点击卡片 → `window-focus:<id>`，然后关闭面板。
-  - 卡片左上角的状态标签（`focused` / `visible` / `urgent`）与边框颜色反映窗口状态。
+  - 卡片左上角的状态标签（`focused` / `visible` / `urgent`）与边框颜色反映窗口状态；
+    `focused` 表示此刻真正持有键盘焦点的窗口。
   - 缩略图缺失时显示 app id 首字母（如 `GC`、`FO`），不会显示占位文案。
 - 选中项进入视口时自动滚动；断线重连、操作失败均在底部给出提示。
 
@@ -196,8 +201,8 @@ loaded: 6 file(s)
     hidden   kitty                ~
 
 [work]  2 window(s), 2 visible
-    visible  foot                 logs
     focused  kitty                editor
+    visible  foot                 logs
 ```
 
 ## 实现说明

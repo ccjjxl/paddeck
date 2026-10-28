@@ -88,6 +88,9 @@ private:
 
     std::vector<WindowInfo> m_windows;
     std::vector<Scratchpad> m_scratchpads;
+    /// Keeps each card's tiles in a stable order even though Umbriel lists
+    /// windows most-recently-focused first.
+    MemberOrder m_member_order;
     Theme m_theme;
     bool m_connected = false;
     /// Index into m_scratchpads; the scratchpad the keys act on.

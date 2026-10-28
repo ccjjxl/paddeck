@@ -462,7 +462,7 @@ sudo ninja -C build install</code></pre>
         <li><span class="pin">1</span><span><b>Title bar</b>: the panel name, with the connection status on the right.</span></li>
         <li><span class="pin">2</span><span><b>Selected scratchpad</b>: its border and name light up. Every key acts on it, so make sure you know which one it is.</span></li>
         <li><span class="pin">3</span><span><b>Window preview</b>: a live thumbnail of the window contents, with the title and app on the line below.</span></li>
-        <li><span class="pin">4</span><span><b>Status badge</b>: <b>visible</b> / <b>partly visible</b> / <b>hidden</b> / <b>empty</b> — the scratchpad's current state at a glance.</span></li>
+        <li><span class="pin">4</span><span><b>Status badge</b>: <b>visible</b> / <b>showing n of m</b> / <b>hidden</b> / <b>empty</b> — the scratchpad's current state at a glance.</span></li>
         <li><span class="pin">5</span><span><b>Key legend</b>: always visible, so you can glance down whenever you forget a key.</span></li>
       </ul>
 
@@ -474,7 +474,7 @@ sudo ninja -C build install</code></pre>
           </thead>
           <tbody>
             <tr><td><b>visible</b></td><td>All windows in this scratchpad are on screen.</td></tr>
-            <tr><td><b>partly visible</b></td><td>Only some members are on screen (for example you revealed one of them with <kbd>h</kbd> <kbd>l</kbd>).</td></tr>
+            <tr><td><b>showing n of m</b></td><td>The scratchpad is showing one member at a time (for example after <kbd>h</kbd> <kbd>l</kbd>): <b>n</b> is the member on screen and <b>m</b> the total. The parked members are dimmed, but their tiles stay where they are.</td></tr>
             <tr><td><b>hidden</b></td><td>All windows are tucked into the scratchpad; none are on screen.</td></tr>
             <tr><td><b>empty</b></td><td>No windows yet. If the config specifies a command to run when empty, toggling it launches that program.</td></tr>
             <tr><td><b>implicit</b></td><td>This is Umbriel's default scratchpad, not one you created.</td></tr>
@@ -489,7 +489,7 @@ sudo ninja -C build install</code></pre>
             <tr><th>Badge</th><th>Meaning</th></tr>
           </thead>
           <tbody>
-            <tr><td><b>focused</b></td><td>This is the window currently in use.</td></tr>
+            <tr><td><b>focused</b></td><td>This is the window holding keyboard focus right now.</td></tr>
             <tr><td><b>visible</b></td><td>The window is on screen (not tucked away).</td></tr>
             <tr><td><b>urgent</b></td><td>The window is requesting attention (for example a terminal bell or a new message).</td></tr>
           </tbody>
@@ -522,7 +522,7 @@ sudo ninja -C build install</code></pre>
             </tr>
             <tr>
               <td class="k"><kbd>h</kbd> / <kbd>l</kbd></td>
-              <td>Reveal only the <b>previous / next member window</b> of the selected scratchpad. Same as <kbd>←</kbd> <kbd>→</kbd>. Useful when there are many windows and you do not want them all at once.</td>
+              <td>Reveal only the <b>previous / next member window</b> of the selected scratchpad. Same as <kbd>←</kbd> <kbd>→</kbd>. Useful when there are many windows and you do not want them all at once. The member tiles always keep the same order, so stepping just moves the highlight across the grid instead of rearranging it.</td>
             </tr>
             <tr>
               <td class="k"><kbd>Enter</kbd></td>
@@ -843,8 +843,8 @@ loaded: 6 file(s)
     hidden   kitty                ~
 
 [work]  2 window(s), 2 visible
-    visible  foot                 logs
-    focused  kitty                editor</code></pre>
+    focused  kitty                editor
+    visible  foot                 logs</code></pre>
       <p>
         The <code>visible</code> / <code>focused</code> / <code>hidden</code>
         marker in front of each window shows whether it is currently on screen
