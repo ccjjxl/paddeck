@@ -311,7 +311,7 @@ source hard-codes it.
 
 ## Version & license
 
-- Current version: **0.2.0** (see [`CHANGELOG.md`](CHANGELOG.md)).
+- Current version: **0.3.0** (see [`CHANGELOG.md`](CHANGELOG.md)).
 - License: [MIT](LICENSE). Every source file carries an
   `SPDX-License-Identifier: MIT` header.
 - Source tarball:

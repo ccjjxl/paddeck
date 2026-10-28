@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file. This project
 follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] — 2026-10-28
 
 Tiles no longer jump around the grid while you step through a scratchpad's
 members.
@@ -145,5 +145,6 @@ switch scratchpads without touching the mouse.
 - The panel only lists windows that currently live in a scratchpad. Ordinary
   desktop windows never appear.
 
+[0.3.0]: https://github.com/ccjjxl/paddeck/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ccjjxl/paddeck/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ccjjxl/paddeck/releases/tag/v0.1.0
