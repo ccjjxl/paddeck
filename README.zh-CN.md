@@ -49,10 +49,10 @@ Umbriel 的 **scratchpad（暂存区）切换器**，用 C++20 + GTK4 实现，
 | 按键 | 动作 | Umbriel 动作 |
 | --- | --- | --- |
 | `j` / `k`、`↓` / `↑`、`Tab` / `Shift+Tab` | 上下移动选中项（首尾循环） | — |
-| `Space` | 显示 / 隐藏选中的暂存区 | `scratchpad-toggle:<name>` |
-| `h` / `l`、`←` / `→` | 只显示上一个 / 下一个成员窗口（缩略图位置固定不变） | `scratchpad-window-show-previous\|next:<name>` |
-| `Enter` | 跳转到选中暂存区的窗口并关闭面板 | `window-focus:<id>` |
-| `1` … `9` | 跳到第 n 个暂存区并立即切换 | `scratchpad-toggle:<name>` |
+| `Space` | 显示 / 隐藏选中的暂存区 | `scratchpad-toggle <name>` |
+| `h` / `l`、`←` / `→` | 只显示上一个 / 下一个成员窗口（缩略图位置固定不变） | `scratchpad-window-show-previous\|next <name>` |
+| `Enter` | 跳转到选中暂存区的窗口并关闭面板 | `window-focus <id>` |
+| `1` … `9` | 跳到第 n 个暂存区并立即切换 | `scratchpad-toggle <name>` |
 | `Home` / `End` | 跳到第一个 / 最后一个 | — |
 | `Esc` | 关闭面板 | — |
 
@@ -70,7 +70,7 @@ Umbriel 的 **scratchpad（暂存区）切换器**，用 C++20 + GTK4 实现，
     缩略图换位置：`h` / `l` 只是让高亮在网格上左右移动。Umbriel 的窗口列表是
     “最近聚焦优先”，直接用它会让每次步进都重排缩略图。
   - 当暂存区一次只显示一个成员时，其余成员会变暗，让当前显示的那一个保持醒目。
-  - 点击卡片 → `window-focus:<id>`，然后关闭面板。
+  - 点击卡片 → `window-focus <id>`，然后关闭面板。
   - 卡片左上角的状态标签（`focused` / `visible` / `urgent`）与边框颜色反映窗口状态；
     `focused` 表示此刻真正持有键盘焦点的窗口。
   - 缩略图缺失时显示 app id 首字母（如 `GC`、`FO`），不会显示占位文案。
@@ -238,8 +238,10 @@ meson 会在构建时用 `wayland-scanner` 生成 `xdg-shell`、
 
 - **IPC**：`{"cmd":"subscribe","events":["windows","theme"]}` 提供全量快照
   （Umbriel 的 payload 是快照而非增量），运行在独立线程，用 `Glib::Dispatcher`
-  把结果投递回 GTK 主线程；动作在另一个工作线程里顺序发送
-  `{"cmd":"msg","arg":"..."}`。断线后每 1 秒自动重连。
+  把结果投递回 GTK 主线程；动作在另一个工作线程里顺序发送带类型字段的请求，例如
+  `{"cmd":"action","action":"scratchpad-toggle","scratchpad":"work"}`。若遇到只支持
+  旧版 `{"cmd":"msg","arg":"name:argument"}` 的 Umbriel，会自动回退。断线后每
+  1 秒自动重连。
 - **键盘**：`Gtk::EventControllerKey` 挂在窗口上并使用 `CAPTURE` 阶段，
   因此列表永远不会把按键拿去做自己的焦点导航；`Tab` / 方向键被显式消费。
 - **选中与滚动**：选中项所在的卡片设置了 `can_focus`，靠 `grab_focus()`
@@ -264,7 +266,7 @@ meson 会在构建时用 `wayland-scanner` 生成 `xdg-shell`、
 
 ## 版本与许可
 
-- 当前版本：**0.3.0**（见 [`CHANGELOG.md`](CHANGELOG.md)）。
+- 当前版本：**0.3.1**（见 [`CHANGELOG.md`](CHANGELOG.md)）。
 - 许可证：[MIT](LICENSE)。所有源文件均带 `SPDX-License-Identifier: MIT` 标识。
 - 源码发布包：
 

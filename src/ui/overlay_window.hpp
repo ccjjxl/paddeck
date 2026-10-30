@@ -75,7 +75,7 @@ private:
     const Scratchpad* selected() const;
 
     void update_capture_targets();
-    void run(std::string action);
+    void run(UmbrielAction action);
     void set_status(const Glib::ustring& message, bool error);
 
     Gtk::Widget* build_scratchpad_card(const Scratchpad& sp, int index);

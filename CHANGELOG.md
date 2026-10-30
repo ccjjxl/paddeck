@@ -3,6 +3,25 @@
 All notable changes to this project are documented in this file. This project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] — 2026-10-30
+
+Actions work again after Umbriel replaced its `msg` IPC command with typed
+`action` requests.
+
+### Fixed
+
+- **Actions use Umbriel's typed request.** Keys such as `Space`, `Enter`, and
+  `←` / `→` sent `{"cmd":"msg","arg":"scratchpad-toggle:<name>"}`, which the
+  current Umbriel rejects with `unknown command: msg` because that command was
+  removed. Requests now carry the action name and its selector as separate
+  typed fields, for example
+  `{"cmd":"action","action":"scratchpad-toggle","scratchpad":"work"}`, so
+  scratchpad names no longer have to be escaped into a command string.
+- An Umbriel old enough to only understand the former `msg` form is detected
+  from its reply and still receives the legacy request.
+
+[0.3.1]: https://github.com/ccjjxl/paddeck/releases/tag/v0.3.1
+
 ## [0.3.0] — 2026-10-28
 
 Tiles no longer jump around the grid while you step through a scratchpad's

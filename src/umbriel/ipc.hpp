@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -21,8 +22,27 @@ namespace paddeck {
 /// Path of the Umbriel IPC socket, following UMBRIEL_SOCKET and XDG defaults.
 std::string umbriel_socket_path();
 
+/// One action addressed to Umbriel's typed IPC, for example
+/// `{"cmd":"action","action":"scratchpad-toggle","scratchpad":"work"}`.
+struct UmbrielAction {
+    std::string name;
+    std::optional<std::string> scratchpad;
+    std::optional<std::string> window;
+
+    /// The request the current Umbriel IPC expects.
+    nlohmann::json request() const;
+    /// The older `name:argument` form, used as a fallback for older Umbriel.
+    std::string legacy_message() const;
+    /// Human-readable form for failure messages.
+    std::string label() const;
+};
+
+/// Actions that carry one scratchpad or window selector.
+UmbrielAction scratchpad_action(std::string name, std::string scratchpad);
+UmbrielAction window_action(std::string name, std::string window);
+
 /// Send one action and wait for its reply. Blocking; use a worker thread.
-bool umbriel_send_action(const std::string& action, std::string* error);
+bool umbriel_send_action(const UmbrielAction& action, std::string* error);
 
 /// Send one query, for example `windows`, and return its `ok` payload.
 bool umbriel_query(const std::string& command, nlohmann::json* payload, std::string* error);
@@ -42,8 +62,8 @@ public:
     void start();
     void stop();
 
-    /// Queue an action, for example `scratchpad-toggle:terminal`.
-    void send_action(std::string action);
+    /// Queue an action, for example the `scratchpad-toggle` action for `terminal`.
+    void send_action(UmbrielAction action);
 
     sigc::signal<void(std::vector<WindowInfo>)> signal_windows;
     sigc::signal<void(Theme)> signal_theme;
@@ -88,7 +108,7 @@ private:
     bool m_connection_dirty = false;
 
     std::mutex m_action_mutex;
-    std::deque<std::string> m_action_queue;
+    std::deque<UmbrielAction> m_action_queue;
     std::deque<ActionResult> m_action_results;
 
     Glib::Dispatcher m_windows_dispatcher;

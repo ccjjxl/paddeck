@@ -303,7 +303,7 @@ void OverlayWindow::set_status(const Glib::ustring& message, bool error) {
     m_status->add_css_class(error ? "pd-error" : "pd-ok");
 }
 
-void OverlayWindow::run(std::string action) {
+void OverlayWindow::run(UmbrielAction action) {
     m_ipc.send_action(std::move(action));
 }
 
@@ -401,7 +401,7 @@ void OverlayWindow::toggle_selected() {
         set_status("Nothing is stored in \"" + sp->name + "\".", false);
         return;
     }
-    run("scratchpad-toggle:" + sp->name);
+    run(scratchpad_action("scratchpad-toggle", sp->name));
     set_status("Toggled \"" + sp->name + "\".", false);
 }
 
@@ -410,9 +410,9 @@ void OverlayWindow::cycle_member_of_selection(int delta) {
     if (sp == nullptr || sp->windows.empty()) {
         return;
     }
-    run(std::string(delta < 0 ? "scratchpad-window-show-previous:"
-                              : "scratchpad-window-show-next:") +
-        sp->name);
+    run(scratchpad_action(
+        delta < 0 ? "scratchpad-window-show-previous" : "scratchpad-window-show-next",
+        sp->name));
 }
 
 void OverlayWindow::focus_selected() {
@@ -442,7 +442,7 @@ void OverlayWindow::focus_selected() {
     if (target == nullptr) {
         target = &sp->windows.front();
     }
-    run("window-focus:" + target->id);
+    run(window_action("window-focus", target->id));
     hide();
 }
 
@@ -654,7 +654,7 @@ Gtk::Widget* OverlayWindow::build_window_tile(const WindowInfo& w) {
     // same thing `enter` does for the selection.
     auto gesture = Gtk::GestureClick::create();
     gesture->signal_released().connect([this, id](int, double, double) {
-        run("window-focus:" + id);
+        run(window_action("window-focus", id));
         hide();
     });
     tile->add_controller(gesture);

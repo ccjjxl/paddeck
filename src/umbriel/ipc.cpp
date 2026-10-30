@@ -99,7 +99,10 @@ std::string umbriel_socket_path() {
     return dir + "/umbriel-" + name + ".sock";
 }
 
-bool umbriel_send_action(const std::string& action, std::string* error) {
+namespace {
+
+/// Send one request and parse Umbriel's one-line JSON reply.
+bool exchange(const nlohmann::json& request, nlohmann::json* reply, std::string* error) {
     const std::string path = umbriel_socket_path();
     const int fd = connect_socket(path);
     if (fd < 0) {
@@ -109,18 +112,16 @@ bool umbriel_send_action(const std::string& action, std::string* error) {
         return false;
     }
 
-    const std::string request =
-        nlohmann::json{{"cmd", "msg"}, {"arg", action}}.dump() + "\n";
-    if (!write_all(fd, request)) {
+    if (!write_all(fd, request.dump() + "\n")) {
         ::close(fd);
         if (error != nullptr) {
-            *error = "Failed to send the action to Umbriel";
+            *error = "Failed to send the request to Umbriel";
         }
         return false;
     }
 
-    std::string reply;
-    const bool got_reply = read_line(fd, 5000, &reply);
+    std::string line;
+    const bool got_reply = read_line(fd, 5000, &line);
     ::close(fd);
     if (!got_reply) {
         if (error != nullptr) {
@@ -129,66 +130,114 @@ bool umbriel_send_action(const std::string& action, std::string* error) {
         return false;
     }
 
-    const auto parsed = nlohmann::json::parse(reply, nullptr, false);
+    auto parsed = nlohmann::json::parse(line, nullptr, false);
     if (parsed.is_discarded() || !parsed.is_object()) {
         if (error != nullptr) {
             *error = "Umbriel sent an unreadable reply";
         }
         return false;
     }
-    if (const auto it = parsed.find("err"); it != parsed.end() && it->is_string()) {
-        if (error != nullptr) {
-            *error = it->get<std::string>();
-        }
+    *reply = std::move(parsed);
+    return true;
+}
+
+/// Copy an `err` reply into `error`; returns true when the reply is an error.
+bool take_reply_error(const nlohmann::json& reply, std::string* error) {
+    const auto it = reply.find("err");
+    if (it == reply.end() || !it->is_string()) {
         return false;
+    }
+    if (error != nullptr) {
+        *error = it->get<std::string>();
     }
     return true;
 }
 
+}  // namespace
+
+nlohmann::json UmbrielAction::request() const {
+    nlohmann::json request{{"cmd", "action"}, {"action", name}};
+    if (scratchpad) {
+        request["scratchpad"] = *scratchpad;
+    }
+    if (window) {
+        request["window"] = *window;
+    }
+    return request;
+}
+
+std::string UmbrielAction::legacy_message() const {
+    std::string message = name;
+    if (scratchpad) {
+        message += ":" + *scratchpad;
+    } else if (window) {
+        message += ":" + *window;
+    }
+    return message;
+}
+
+std::string UmbrielAction::label() const {
+    std::string text = name;
+    if (scratchpad) {
+        text += " " + *scratchpad;
+    } else if (window) {
+        text += " " + *window;
+    }
+    return text;
+}
+
+UmbrielAction scratchpad_action(std::string name, std::string scratchpad) {
+    UmbrielAction action;
+    action.name = std::move(name);
+    action.scratchpad = std::move(scratchpad);
+    return action;
+}
+
+UmbrielAction window_action(std::string name, std::string window) {
+    UmbrielAction action;
+    action.name = std::move(name);
+    action.window = std::move(window);
+    return action;
+}
+
+bool umbriel_send_action(const UmbrielAction& action, std::string* error) {
+    nlohmann::json reply;
+    if (!exchange(action.request(), &reply, error)) {
+        return false;
+    }
+    std::string reply_error;
+    if (!take_reply_error(reply, &reply_error)) {
+        return true;
+    }
+
+    // Umbriel before the typed `action` request only accepted `msg` with a
+    // `name:argument` string. Keep working there after the new request is
+    // rejected as an unknown command.
+    if (reply_error == "unknown command: action") {
+        nlohmann::json legacy_reply;
+        const nlohmann::json legacy_request{
+            {"cmd", "msg"}, {"arg", action.legacy_message()}};
+        if (!exchange(legacy_request, &legacy_reply, error)) {
+            return false;
+        }
+        return !take_reply_error(legacy_reply, error);
+    }
+    if (error != nullptr) {
+        *error = std::move(reply_error);
+    }
+    return false;
+}
+
 bool umbriel_query(const std::string& command, nlohmann::json* payload, std::string* error) {
-    const std::string path = umbriel_socket_path();
-    const int fd = connect_socket(path);
-    if (fd < 0) {
-        if (error != nullptr) {
-            *error = "Cannot reach the Umbriel socket at " + path;
-        }
+    nlohmann::json reply;
+    if (!exchange(nlohmann::json{{"cmd", command}}, &reply, error)) {
         return false;
     }
-
-    const std::string request = nlohmann::json{{"cmd", command}}.dump() + "\n";
-    if (!write_all(fd, request)) {
-        ::close(fd);
-        if (error != nullptr) {
-            *error = "Failed to send the query to Umbriel";
-        }
+    if (take_reply_error(reply, error)) {
         return false;
     }
-
-    std::string reply;
-    const bool got_reply = read_line(fd, 5000, &reply);
-    ::close(fd);
-    if (!got_reply) {
-        if (error != nullptr) {
-            *error = "Umbriel did not answer in time";
-        }
-        return false;
-    }
-
-    const auto parsed = nlohmann::json::parse(reply, nullptr, false);
-    if (parsed.is_discarded() || !parsed.is_object()) {
-        if (error != nullptr) {
-            *error = "Umbriel sent an unreadable reply";
-        }
-        return false;
-    }
-    if (const auto it = parsed.find("err"); it != parsed.end() && it->is_string()) {
-        if (error != nullptr) {
-            *error = it->get<std::string>();
-        }
-        return false;
-    }
-    const auto ok = parsed.find("ok");
-    if (ok == parsed.end()) {
+    const auto ok = reply.find("ok");
+    if (ok == reply.end()) {
         if (error != nullptr) {
             *error = "Umbriel replied without an `ok` field";
         }
@@ -237,7 +286,7 @@ void UmbrielIpc::wait_for(std::chrono::milliseconds duration) {
     m_cv.wait_for(lock, duration, [this] { return !m_run.load(); });
 }
 
-void UmbrielIpc::send_action(std::string action) {
+void UmbrielIpc::send_action(UmbrielAction action) {
     {
         std::lock_guard<std::mutex> lock(m_action_mutex);
         m_action_queue.push_back(std::move(action));
@@ -356,7 +405,7 @@ void UmbrielIpc::handle_line(const std::string& line) {
 
 void UmbrielIpc::action_loop() {
     while (true) {
-        std::string action;
+        std::optional<UmbrielAction> action;
         {
             std::lock_guard<std::mutex> lock(m_action_mutex);
             if (!m_action_queue.empty()) {
@@ -365,7 +414,7 @@ void UmbrielIpc::action_loop() {
             }
         }
 
-        if (action.empty()) {
+        if (!action) {
             if (!m_run.load()) {
                 break;
             }
@@ -379,10 +428,11 @@ void UmbrielIpc::action_loop() {
         }
 
         std::string error;
-        const bool ok = umbriel_send_action(action, &error);
+        const bool ok = umbriel_send_action(*action, &error);
         {
             std::lock_guard<std::mutex> lock(m_action_mutex);
-            m_action_results.push_back(ActionResult{std::move(action), ok, std::move(error)});
+            m_action_results.push_back(
+                ActionResult{action->label(), ok, std::move(error)});
         }
         m_action_dispatcher.emit();
     }

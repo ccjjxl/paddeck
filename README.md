@@ -59,10 +59,10 @@ visible at the bottom of the panel.
 | Key | Action | Umbriel action |
 | --- | --- | --- |
 | `j` / `k`, `↓` / `↑`, `Tab` / `Shift+Tab` | Move the selection (wraps around) | — |
-| `Space` | Show / hide the selected scratchpad | `scratchpad-toggle:<name>` |
-| `h` / `l`, `←` / `→` | Show only the previous / next member window (the tiles never reorder) | `scratchpad-window-show-previous\|next:<name>` |
-| `Enter` | Focus a window in the selected scratchpad and close | `window-focus:<id>` |
-| `1` … `9` | Jump to the n-th scratchpad and toggle it immediately | `scratchpad-toggle:<name>` |
+| `Space` | Show / hide the selected scratchpad | `scratchpad-toggle <name>` |
+| `h` / `l`, `←` / `→` | Show only the previous / next member window (the tiles never reorder) | `scratchpad-window-show-previous\|next <name>` |
+| `Enter` | Focus a window in the selected scratchpad and close | `window-focus <id>` |
+| `1` … `9` | Jump to the n-th scratchpad and toggle it immediately | `scratchpad-toggle <name>` |
 | `Home` / `End` | Jump to the first / last scratchpad | — |
 | `Esc` | Close the panel | — |
 
@@ -85,7 +85,7 @@ that window and close, click outside the panel to dismiss.
     first, so it cannot be used directly; new members are appended at the end.)
   - While a scratchpad shows one member at a time, the parked members are
     dimmed so the shown one stays obvious.
-  - Clicking a card sends `window-focus:<id>` and closes the panel.
+  - Clicking a card sends `window-focus <id>` and closes the panel.
   - A status badge in the top-left corner (`focused` / `visible` / `urgent`)
     and the tile border colour reflect the window state; `focused` is the
     window that holds keyboard focus right now.
@@ -275,9 +275,11 @@ source hard-codes it.
 - **IPC**: `{"cmd":"subscribe","events":["windows","theme"]}` delivers a full
   snapshot (Umbriel's payload is a snapshot, not a delta). It runs on a separate
   thread and posts results back to the GTK main thread with
-  `Glib::Dispatcher`; actions are sent sequentially as
-  `{"cmd":"msg","arg":"..."}` from another worker thread. Reconnects every
-  second after a disconnect.
+  `Glib::Dispatcher`; actions are sent sequentially as typed requests such as
+  `{"cmd":"action","action":"scratchpad-toggle","scratchpad":"work"}` from
+  another worker thread. Older Umbriel releases that only know the former
+  `{"cmd":"msg","arg":"name:argument"}` form are detected and still work.
+  Reconnects every second after a disconnect.
 - **Keyboard**: a `Gtk::EventControllerKey` is attached in the `CAPTURE` phase,
   so the list never consumes keys for its own focus navigation; `Tab` and the
   arrow keys are consumed explicitly.
@@ -311,7 +313,7 @@ source hard-codes it.
 
 ## Version & license
 
-- Current version: **0.3.0** (see [`CHANGELOG.md`](CHANGELOG.md)).
+- Current version: **0.3.1** (see [`CHANGELOG.md`](CHANGELOG.md)).
 - License: [MIT](LICENSE). Every source file carries an
   `SPDX-License-Identifier: MIT` header.
 - Source tarball:
